@@ -28,12 +28,8 @@ from sdh.metrics.server import app
 from sdh.metrics.store.scm import store
 import itertools
 
-def __aggregate_time_data(key, begin, end, num, aggr):
-    if num:
-        step = (end - begin) / num
-    else:
-        step = (end - begin)
 
+def __aggregate_time_data(key, begin, end, num, step, aggr):
     step_begin = begin
     values = []
     while step_begin <= end - step:
@@ -49,43 +45,52 @@ def __aggregate_time_data(key, begin, end, num, aggr):
             elm_0 = [len(x) for x in elm_0]
         return t_ini, elm_0
 
-    return begin, [aggr(part) for part in values]
+    return [aggr(part) for part in values]
+
 
 def __avg_aggr(x):
-        if type(x) == list:
-            if x:
-                return sum(x) / float(len(x))
-        return 0
+    if type(x) == list:
+        if x:
+            return sum(x) / float(len(x))
+    return 0
+
 
 @app.orgtbd('/repositories')
-def get_repositories(begin=0, end=None):
+def get_repositories(**kwargs):
     return store.get_repositories()
 
+
 @app.orgtbd('/branches')
-def get_branches(begin=0, end=None):
-    return list(store.get_branches(begin, end))
+def get_branches(**kwargs):
+    return list(store.get_branches(kwargs['begin'], kwargs['end']))
+
 
 @app.orgtbd('/commits')
-def get_commits(begin=0, end=None):
-    return list(store.get_commits(begin, end))
+def get_commits(**kwargs):
+    return list(store.get_commits(kwargs['begin'], kwargs['end']))
+
 
 @app.usertbd('/user-commits')
-def get_user_commits(uid, begin=0, end=None):
-    return list(store.get_commits(begin, end, uid=uid))
+def get_user_commits(uid, **kwargs):
+    return list(store.get_commits(kwargs['begin'], kwargs['end'], uid=uid))
+
 
 @app.userrepotbd('/user-repo-commits')
-def get_user_repo_commits(rid, uid, begin=0, end=None):
-    return list(store.get_commits(begin, end, uid=uid, rid=rid))
+def get_user_repo_commits(rid, uid, **kwargs):
+    return list(store.get_commits(kwargs['begin'], kwargs['end'], uid=uid, rid=rid))
+
 
 @app.orgtbd('/developers')
-def get_developers(begin=0, end=None):
-    devs = store.get_developers(begin, end)
+def get_developers(**kwargs):
+    devs = store.get_developers(kwargs['begin'], kwargs['end'])
     return list(devs)
 
+
 @app.repotbd('/repo-developers')
-def get_repo_developers(rid, begin=0, end=None):
-    devs = store.get_developers(begin, end, rid=rid)
+def get_repo_developers(rid, **kwargs):
+    devs = store.get_developers(kwargs['begin'], kwargs['end'], rid=rid)
     return list(devs)
+
 
 def _update_interval_repo_commits(begin, end):
     for repo in store.get_repositories():
@@ -93,21 +98,25 @@ def _update_interval_repo_commits(begin, end):
         obj_value = {'t': begin, 'v': value}
         store.update_set('metrics:total-repo-commits:{}'.format(repo['name']), begin, obj_value)
 
+
 def _update_interval_user_commits(begin, end):
     for _, uid in store.get_developers(begin, end):
         value = len(store.get_commits(begin, end, uid=uid))
         obj_value = {'t': begin, 'v': value}
         store.update_set('metrics:total-user-commits:{}'.format(uid), begin, obj_value)
 
+
 def _update_interval_commits(begin, end):
     value = len(store.get_commits(begin, end))
     obj_value = {'t': begin, 'v': value}
     store.update_set('metrics:total-commits', begin, obj_value)
 
+
 def _update_interval_branches(begin, end):
     value = len(store.get_branches(begin, end))
     obj_value = {'t': begin, 'v': value}
     store.update_set('metrics:total-branches', begin, obj_value)
+
 
 def _update_interval_repo_branches(begin, end):
     for repo in store.get_repositories():
@@ -115,10 +124,12 @@ def _update_interval_repo_branches(begin, end):
         obj_value = {'t': begin, 'v': value}
         store.update_set('metrics:total-repo-branches:{}'.format(repo['name']), begin, obj_value)
 
+
 def _update_interval_developers(begin, end):
     value = len(store.get_developers(begin, end))
     obj_value = {'t': begin, 'v': value}
     store.update_set('metrics:total-developers', begin, obj_value)
+
 
 def _update_interval_repo_developers(begin, end):
     for repo in store.get_repositories():
@@ -126,53 +137,74 @@ def _update_interval_repo_developers(begin, end):
         obj_value = {'t': begin, 'v': value}
         store.update_set('metrics:total-repo-developers:{}'.format(repo['name']), begin, obj_value)
 
+
 @app.repometric('/total-repo-commits', calculus=_update_interval_repo_commits)
-def get_total_repo_commits(rid, begin=0, end=None, num=1):
-    return __aggregate_time_data('metrics:total-repo-commits:{}'.format(rid), begin, end, num, lambda x: sum(x))
+def get_total_repo_commits(rid, **kwargs):
+    return __aggregate_time_data('metrics:total-repo-commits:{}'.format(rid), kwargs['begin'], kwargs['end'],
+                                 kwargs['num'], kwargs['step'], lambda x: sum(x))
+
 
 @app.orgmetric('/total-commits', calculus=_update_interval_commits)
-def get_total_org_commits(begin=0, end=None, num=1):
-    return __aggregate_time_data('metrics:total-commits', begin, end, num, lambda x: sum(x))
+def get_total_org_commits(**kwargs):
+    return __aggregate_time_data('metrics:total-commits', kwargs['begin'], kwargs['end'],
+                                 kwargs['num'], kwargs['step'], lambda x: sum(x))
+
 
 @app.usermetric('/total-user-commits', calculus=_update_interval_user_commits)
-def get_total_user_commits(uid, begin=0, end=None, num=1):
-    return __aggregate_time_data('metrics:total-user-commits:{}'.format(uid), begin, end, num, lambda x: sum(x))
+def get_total_user_commits(uid, **kwargs):
+    return __aggregate_time_data('metrics:total-user-commits:{}'.format(uid), kwargs['begin'], kwargs['end'],
+                                 kwargs['num'], kwargs['step'], lambda x: sum(x))
+
 
 @app.repometric('/avg-repo-commits')
-def get_avg_repo_commits(rid, begin=0, end=None, num=1):
-    return __aggregate_time_data('metrics:total-repo-commits:{}'.format(rid), begin, end, num,
+def get_avg_repo_commits(rid, **kwargs):
+    return __aggregate_time_data('metrics:total-repo-commits:{}'.format(rid), kwargs['begin'], kwargs['end'],
+                                 kwargs['num'], kwargs['step'],
                                  __avg_aggr)
 
+
 @app.orgmetric('/avg-commits')
-def get_avg_org_commits(begin=0, end=None, num=1):
-    return __aggregate_time_data('metrics:total-commits', begin, end, num, __avg_aggr)
+def get_avg_org_commits(**kwargs):
+    return __aggregate_time_data('metrics:total-commits', kwargs['begin'], kwargs['end'],
+                                 kwargs['num'], kwargs['step'], __avg_aggr)
+
 
 @app.orgmetric('/total-branches', calculus=_update_interval_branches)
-def get_total_org_branches(begin=0, end=None, num=1):
-    return __aggregate_time_data('metrics:total-branches', begin, end, num, lambda x: sum(x))
+def get_total_org_branches(**kwargs):
+    return __aggregate_time_data('metrics:total-branches', kwargs['begin'], kwargs['end'],
+                                 kwargs['num'], kwargs['step'], lambda x: sum(x))
+
 
 @app.repometric('/total-repo-branches', calculus=_update_interval_repo_branches)
-def get_total_repo_branches(rid, begin=0, end=None, num=1):
-    return __aggregate_time_data('metrics:total-repo-branches:{}'.format(rid), begin, end, num, lambda x: sum(x))
+def get_total_repo_branches(rid, **kwargs):
+    return __aggregate_time_data('metrics:total-repo-branches:{}'.format(rid), kwargs['begin'], kwargs['end'],
+                                 kwargs['num'], kwargs['step'], lambda x: sum(x))
+
 
 @app.orgmetric('/avg-branches')
-def get_avg_org_branches(begin=0, end=None, num=1):
-    return __aggregate_time_data('metrics:total-branches', begin, end, num, __avg_aggr)
+def get_avg_org_branches(**kwargs):
+    return __aggregate_time_data('metrics:total-branches', kwargs['begin'], kwargs['end'],
+                                 kwargs['num'], kwargs['step'], __avg_aggr)
+
 
 @app.orgmetric('/total-developers', calculus=_update_interval_developers)
-def get_total_org_developers(begin=0, end=None, num=1):
+def get_total_org_developers(**kwargs):
     def __aggr(x):
         if any(isinstance(el, list) for el in x):
             chain = itertools.chain(*x)
             return len(set(list(chain)))
         else:
             return sum(x)
-    return __aggregate_time_data('metrics:total-developers', begin, end, num, __aggr)
+
+    return __aggregate_time_data('metrics:total-developers', kwargs['begin'], kwargs['end'],
+                                 kwargs['num'], kwargs['step'], __aggr)
+
 
 @app.repometric('/total-repo-developers', calculus=_update_interval_repo_developers)
-def get_total_repo_developers(rid, begin=0, end=None, num=1):
+def get_total_repo_developers(rid, **kwargs):
     def __aggr(x):
         chain = itertools.chain(*x)
         return len(set(list(chain)))
 
-    return __aggregate_time_data('metrics:total-repo-developers:{}'.format(rid), begin, end, num, __aggr)
+    return __aggregate_time_data('metrics:total-repo-developers:{}'.format(rid), kwargs['begin'], kwargs['end'],
+                                 kwargs['num'], kwargs['step'], __aggr)
