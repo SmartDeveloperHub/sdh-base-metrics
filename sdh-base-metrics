@@ -30,7 +30,7 @@ from sdh.metrics.server import app
 
 log_level = app.config['LOG']
 
-logger = logging.getLogger('apscheduler')
+logger = logging.getLogger('agora.provider')
 ch = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 ch.setLevel(log_level)
@@ -41,8 +41,8 @@ logger = logging.getLogger('sdh.metrics')
 logger.addHandler(ch)
 logger.setLevel(log_level)
 
-import sdh.metrics.base.api
-
-
 app.logger.info('Listening!')
+
+from sdh.metrics.base import api
+
 app.run(host='0.0.0.0', port=app.config['PORT'], debug=True, use_reloader=False)
