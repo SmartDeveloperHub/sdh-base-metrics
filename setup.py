@@ -28,7 +28,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="SDH-Base-Metrics",
-    version="0.0.1",
+    version="0.0.2",
     author="Fernando Serena",
     author_email="fernando.serena@centeropenmiddleware.com",
     description="A service that calculates a small set of quantitative metrics on data from GitLab and Jenkins.",

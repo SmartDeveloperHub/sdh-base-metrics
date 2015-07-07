@@ -55,38 +55,38 @@ def __avg_aggr(x):
     return 0
 
 
-@app.orgtbd('/repositories')
+@app.orgtbd('/repositories', 'repositories')
 def get_repositories(**kwargs):
     return store.get_repositories()
 
 
-@app.orgtbd('/branches')
+@app.orgtbd('/branches', 'branches')
 def get_branches(**kwargs):
     return list(store.get_branches(kwargs['begin'], kwargs['end']))
 
 
-@app.orgtbd('/commits')
+@app.orgtbd('/commits', 'commits')
 def get_commits(**kwargs):
     return list(store.get_commits(kwargs['begin'], kwargs['end']))
 
 
-@app.usertbd('/user-commits')
+@app.usertbd('/user-commits', 'commits')
 def get_user_commits(uid, **kwargs):
     return list(store.get_commits(kwargs['begin'], kwargs['end'], uid=uid))
 
 
-@app.userrepotbd('/user-repo-commits')
+@app.userrepotbd('/user-repo-commits', 'commits')
 def get_user_repo_commits(rid, uid, **kwargs):
     return list(store.get_commits(kwargs['begin'], kwargs['end'], uid=uid, rid=rid))
 
 
-@app.orgtbd('/developers')
+@app.orgtbd('/developers', 'developers')
 def get_developers(**kwargs):
     devs = store.get_developers(kwargs['begin'], kwargs['end'])
     return list(devs)
 
 
-@app.repotbd('/repo-developers')
+@app.repotbd('/repo-developers', 'developers')
 def get_repo_developers(rid, **kwargs):
     devs = store.get_developers(kwargs['begin'], kwargs['end'], rid=rid)
     return list(devs)
@@ -138,56 +138,56 @@ def _update_interval_repo_developers(begin, end):
         store.update_set('metrics:total-repo-developers:{}'.format(repo['name']), begin, obj_value)
 
 
-@app.repometric('/total-repo-commits', calculus=_update_interval_repo_commits)
+@app.repometric('/total-repo-commits', 'total-commits', calculus=_update_interval_repo_commits)
 def get_total_repo_commits(rid, **kwargs):
     return __aggregate_time_data('metrics:total-repo-commits:{}'.format(rid), kwargs['begin'], kwargs['end'],
                                  kwargs['num'], kwargs['step'], lambda x: sum(x))
 
 
-@app.orgmetric('/total-commits', calculus=_update_interval_commits)
+@app.orgmetric('/total-commits', 'total-commits', calculus=_update_interval_commits)
 def get_total_org_commits(**kwargs):
     return __aggregate_time_data('metrics:total-commits', kwargs['begin'], kwargs['end'],
                                  kwargs['num'], kwargs['step'], lambda x: sum(x))
 
 
-@app.usermetric('/total-user-commits', calculus=_update_interval_user_commits)
+@app.usermetric('/total-user-commits', 'total-commits', calculus=_update_interval_user_commits)
 def get_total_user_commits(uid, **kwargs):
     return __aggregate_time_data('metrics:total-user-commits:{}'.format(uid), kwargs['begin'], kwargs['end'],
                                  kwargs['num'], kwargs['step'], lambda x: sum(x))
 
 
-@app.repometric('/avg-repo-commits')
+@app.repometric('/avg-repo-commits', 'avg-commits')
 def get_avg_repo_commits(rid, **kwargs):
     return __aggregate_time_data('metrics:total-repo-commits:{}'.format(rid), kwargs['begin'], kwargs['end'],
                                  kwargs['num'], kwargs['step'],
                                  __avg_aggr)
 
 
-@app.orgmetric('/avg-commits')
+@app.orgmetric('/avg-commits', 'avg-commits')
 def get_avg_org_commits(**kwargs):
     return __aggregate_time_data('metrics:total-commits', kwargs['begin'], kwargs['end'],
                                  kwargs['num'], kwargs['step'], __avg_aggr)
 
 
-@app.orgmetric('/total-branches', calculus=_update_interval_branches)
+@app.orgmetric('/total-branches', 'total-branches', calculus=_update_interval_branches)
 def get_total_org_branches(**kwargs):
     return __aggregate_time_data('metrics:total-branches', kwargs['begin'], kwargs['end'],
                                  kwargs['num'], kwargs['step'], lambda x: sum(x))
 
 
-@app.repometric('/total-repo-branches', calculus=_update_interval_repo_branches)
+@app.repometric('/total-repo-branches', 'total-branches', calculus=_update_interval_repo_branches)
 def get_total_repo_branches(rid, **kwargs):
     return __aggregate_time_data('metrics:total-repo-branches:{}'.format(rid), kwargs['begin'], kwargs['end'],
                                  kwargs['num'], kwargs['step'], lambda x: sum(x))
 
 
-@app.orgmetric('/avg-branches')
+@app.orgmetric('/avg-branches', 'avg-branches')
 def get_avg_org_branches(**kwargs):
     return __aggregate_time_data('metrics:total-branches', kwargs['begin'], kwargs['end'],
                                  kwargs['num'], kwargs['step'], __avg_aggr)
 
 
-@app.orgmetric('/total-developers', calculus=_update_interval_developers)
+@app.orgmetric('/total-developers', 'total-developers', calculus=_update_interval_developers)
 def get_total_org_developers(**kwargs):
     def __aggr(x):
         if any(isinstance(el, list) for el in x):
@@ -200,7 +200,7 @@ def get_total_org_developers(**kwargs):
                                  kwargs['num'], kwargs['step'], __aggr)
 
 
-@app.repometric('/total-repo-developers', calculus=_update_interval_repo_developers)
+@app.repometric('/total-repo-developers', 'total-developers', calculus=_update_interval_repo_developers)
 def get_total_repo_developers(rid, **kwargs):
     def __aggr(x):
         chain = itertools.chain(*x)
