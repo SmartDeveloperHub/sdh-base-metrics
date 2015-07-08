@@ -43,6 +43,6 @@ logger.setLevel(log_level)
 
 app.logger.info('Listening!')
 
-from sdh.metrics.base import api
+from sdh.metrics.scm import api
 
 app.run(host='0.0.0.0', port=app.config['PORT'], debug=True, use_reloader=False)

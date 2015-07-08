@@ -27,18 +27,18 @@ __author__ = 'Fernando Serena'
 from setuptools import setup, find_packages
 
 setup(
-    name="SDH-Base-Metrics",
+    name="SDH-SCM-Metrics",
     version="0.0.2",
     author="Fernando Serena",
     author_email="fernando.serena@centeropenmiddleware.com",
-    description="A service that calculates a small set of quantitative metrics on data from GitLab and Jenkins.",
+    description="A service that calculates a small set of quantitative metrics on data from a GitLab SCM.",
     license="Apache 2",
     keywords=["linked-data", "ontology", "path", "sdh", "metrics"],
-    url="https://github.com/smartdeveloperhub/sdh-base-metrics",
-    download_url="https://github.com/smartdeveloperhub/sdh-base-metrics/tarball/0.0.1",
+    url="https://github.com/smartdeveloperhub/sdh-scm-metrics",
+    download_url="https://github.com/smartdeveloperhub/sdh-scm-metrics/tarball/0.0.2",
     packages=find_packages(exclude=['ez_setup', 'examples', 'tests']),
     namespace_packages=["sdh"],
     install_requires=['SDH-Metrics'],
     classifiers=[],
-    scripts=['sdh-base-metrics']
+    scripts=['sdh-scm-metrics']
 )
