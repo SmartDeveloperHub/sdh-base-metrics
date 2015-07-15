@@ -26,7 +26,7 @@
 __author__ = 'Fernando Serena'
 
 import logging
-from sdh.metrics.server import app
+from sdh.metrics.scm import app
 
 log_level = app.config['LOG']
 

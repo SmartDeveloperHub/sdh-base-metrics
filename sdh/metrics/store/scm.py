@@ -25,46 +25,80 @@
 __author__ = 'Fernando Serena'
 
 
+from sdh.metrics.store.fragment import FragmentStore
 import calendar
-from sdh.metrics.store import store
+from datetime import datetime
+import uuid
 
-@store.collect('?r scm:hasBranch ?b')
-def link_repo_branch((r_uri, _, b_uri)):
-    store.execute(lambda: store.pipe.sadd('frag:repos:-{}-:branches'.format(r_uri), b_uri))
+class SCMStore(FragmentStore):
+    def __init__(self, redis_host):
+        super(SCMStore, self).__init__(redis_host)
 
-@store.collect('?r doap:name ?n')
-def add_repository((r_uri, _, name)):
-    store.execute(lambda: store.pipe.hset('frag:repos:-{}-:'.format(r_uri), 'name', name.toPython()))
-    store.execute(lambda: store.pipe.set('frag:repos:{}:'.format(name.toPython()), r_uri))
+    def get_repositories(self):
+        repo_keys = self.db.keys('frag:repos:-*-:')
+        repo_data = [{'name': self.db.hget(rk, 'name'), 'uri': rk.lstrip('frag:repos:-').rstrip('-:')}
+                     for rk in repo_keys]
+        return repo_data
 
-@store.collect('?c scm:createdOn ?t')
-def add_commit((c_uri, _, created_on)):
-    timestamp = calendar.timegm(created_on.toPython().timetuple())
-    store.execute(lambda: store.pipe.zadd('frag:sorted-commits', timestamp, c_uri))
+    def get_repository_branches(self, rid):
+        branch_set_keys = self.db.keys('frag:repos:-*-:branches')
+        repo_data = [{'name': self.db.hget(bsk, 'name'), 'uri': bsk.split(':')[1]} for bsk in branch_set_keys]
+        return repo_data
 
-@store.collect('?b scm:createdOn ?tb')
-def add_branch((b_uri, _, created_on)):
-    timestamp = calendar.timegm(created_on.toPython().timetuple())
-    store.execute(lambda: store.pipe.zadd('frag:sorted-branches', timestamp, b_uri))
+    def get_commits(self, begin=0, end=None, rid=None, bid=None, uid=None, withstamps=False, limit=None, start=None):
+        if end is None:
+            end = calendar.timegm(datetime.utcnow().timetuple())
+        commits = self.db.zrangebyscore('frag:sorted-commits', begin, end, withscores=withstamps,
+                                        num=limit, start=start)
+        if len(commits):
+            if rid is not None:
+                r_uri = self.db.get('frag:repos:{}:'.format(rid))
+                repo_branches = self.db.smembers('frag:repos:-{}-:branches'.format(r_uri))
+                temp_key = str(uuid.uuid4())
+                self.db.sadd(temp_key, *commits)
+                filtered_commits = set([])
+                for branch in repo_branches:
+                    filtered_commits.update(self.db.sinter(temp_key, 'frag:branches:-{}-:commits'.format(branch)))
+                commits = filtered_commits
+                self.db.delete(temp_key)
+            elif bid is not None:
+                # Do the uri trick as in rid alternative
+                filtered_commits = self.db.smembers('frag:branches:-{}-:commits'.format(bid))
+                if filtered_commits:
+                    filtered_commits = set.union(*filtered_commits)
+                commits = set.intersection(set(commits), filtered_commits)
+            if uid is not None:
+                d_uri = self.db.get('frag:devs:{}:'.format(uid))
+                filtered_commits = self.db.smembers('frag:devs:-{}-:commits'.format(d_uri))
+                commits = set.intersection(set(commits), filtered_commits)
 
-@store.collect('?b scm:hasCommit ?c')
-def link_branch_commit((b_uri, _, c_uri)):
-    store.execute(lambda: store.pipe.sadd('frag:branches:-{}-:commits'.format(b_uri), c_uri))
+        return commits
 
-@store.collect('?c scm:performedBy ?pc')
-def link_commit_developer((c_uri, _, d_uri)):
-    store.execute(lambda: store.pipe.hset('frag:commits:-{}-'.format(c_uri), 'by', d_uri))
-    store.execute(lambda: store.pipe.sadd('frag:devs:-{}-:commits'.format(d_uri), c_uri))
+    def get_branches(self, begin=0, end=None, rid=None, withstamps=False, limit=None, start=None):
+        if end is None:
+            end = calendar.timegm(datetime.utcnow().timetuple())
+        branches = self.db.zrangebyscore('frag:sorted-branches', begin, end, withscores=withstamps, num=limit,
+                                         start=start)
+        if len(branches):
+            if rid is not None:
+                temp_key = str(uuid.uuid4())
+                self.db.sadd(temp_key, *branches)
+                branches = self.db.sinter('frag:repos:-{}-:branches'.format(rid), temp_key)
+                self.db.delete(temp_key)
 
-@store.collect('?r doap:developer ?p')
-def link_repo_developer((r_uri, _, d_uri)):
-    store.execute(lambda: store.pipe.sadd('frag:repos:-{}-:devs'.format(r_uri), d_uri))
+        return branches
 
-@store.collect('?p foaf:name ?pn')
-def set_developer_name((d_uri, _, name)):
-    store.execute(lambda: store.pipe.hset('frag:devs:-{}-'.format(d_uri), 'name', name.toPython()))
+    def get_developers(self, begin=0, end=None, rid=None, withstamps=False, limit=None, start=None):
+        commits = self.get_commits(begin, end, rid=rid, withstamps=withstamps, limit=limit, start=start)
+        if len(commits):
+            developers = set([self.db.hget('frag:commits:-{}-'.format(c), 'by') for c in commits])
+            developers = filter(lambda x: x is not None, developers)
+            developers = [(d_uri, self.db.hget('frag:devs:-{}-'.format(d_uri), 'id')) for d_uri in developers]
+            return developers
+        return commits
 
-@store.collect('?p scm:userId ?pid')
-def set_developer_id((d_uri, _, uid)):
-    store.execute(lambda: store.pipe.set('frag:devs:{}:'.format(uid.toPython()), d_uri))
-    store.execute(lambda: store.pipe.hset('frag:devs:-{}-'.format(d_uri), 'id', uid.toPython()))
+    @property
+    def first_date(self):
+        now = calendar.timegm(datetime.utcnow().timetuple())
+        _, t_ini = self.get_commits(0, now, withstamps=True, start=0, limit=1).pop()
+        return t_ini
