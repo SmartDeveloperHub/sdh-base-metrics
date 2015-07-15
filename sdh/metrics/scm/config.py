@@ -41,7 +41,7 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     DEBUG = False
     LOG = logging.INFO
-    AGORA = 'http://localhost:9001'
+    AGORA = 'http://planner:5000'
     REDIS = 'redis'
 
 
