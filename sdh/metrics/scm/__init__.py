@@ -27,7 +27,8 @@ __author__ = 'Fernando Serena'
 import calendar
 from sdh.metrics.server import MetricsApp
 from sdh.metrics.store.scm import SCMStore
-
+from datetime import datetime, timedelta
+import types
 import os
 
 config = os.environ.get('CONFIG', 'sdh.metrics.scm.config.DevelopmentConfig')
@@ -106,6 +107,7 @@ def update_interval_user_commits(begin, end):
     #     obj_value = {'t': begin, 'v': value}
     #     store.update_set('metrics:total-user-commits:{}'.format(uid), begin, obj_value)
 
+
 @app.calculus(triggers=['add_commit'])
 def update_interval_commits(begin, end):
     value = len(store.get_commits(begin, end))
@@ -126,6 +128,7 @@ def update_interval_developers(begin, end):
     # obj_value = {'t': begin, 'v': value}
     # store.update_set('metrics:total-developers', begin, obj_value)
 
+
 def update_interval_repo_developers(begin, end):
     pass
     # for repo in store.get_repositories():
@@ -134,13 +137,28 @@ def update_interval_repo_developers(begin, end):
     #     store.update_set('metrics:total-repo-developers:{}'.format(repo['name']), begin, obj_value)
 
 
-def aggregate(key, begin, end, num, step, aggr):
+def aggregate(key, begin, end, num, step, aggr=sum):
     step_begin = begin
     values = []
+
+    def build_time_chunk(ts_dict, begin, end):
+        _next = begin
+        while _next <= end:
+            if _next in ts_dict.keys():
+                yield ts_dict[_next]
+            else:
+                yield 0
+            _next = calendar.timegm((datetime.utcfromtimestamp(_next) + timedelta(days=1)).timetuple())
+
     while step_begin <= end - step:
         step_end = step_begin + step
-        result = [eval(res)['v'] for res in store.db.zrangebyscore(key, step_begin, step_end)]
-        values.append(result)
+        if aggr == sum:
+            chunk = [eval(res)['v'] for res in store.db.zrangebyscore(key, step_begin, step_end)]
+        else:
+            stored_values = dict([(int(ts), eval(res)['v']) for res, ts in
+                                  store.db.zrangebyscore(key, step_begin, step_end, withscores=True)])
+            chunk = build_time_chunk(stored_values, step_begin, step_end)
+        values.append(chunk)
         step_begin = step_end
 
     if not num:
@@ -154,6 +172,8 @@ def aggregate(key, begin, end, num, step, aggr):
 
 
 def avg(x):
+    if isinstance(x, types.GeneratorType):
+        x = list(x)
     if type(x) == list:
         if x:
             return sum(x) / float(len(x))
