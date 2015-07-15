@@ -68,19 +68,19 @@ def get_repo_developers(rid, **kwargs):
 @app.repometric('/total-repo-commits', 'sum', 'commits')
 def get_total_repo_commits(rid, **kwargs):
     return aggregate('metrics:total-repo-commits:{}'.format(rid), kwargs['begin'], kwargs['end'],
-                     kwargs['num'], kwargs['step'], lambda x: sum(x))
+                     kwargs['num'], kwargs['step'])
 
 
 @app.orgmetric('/total-commits', 'sum', 'commits')
 def get_total_org_commits(**kwargs):
     return aggregate('metrics:total-commits', kwargs['begin'], kwargs['end'],
-                     kwargs['num'], kwargs['step'], lambda x: sum(x))
+                     kwargs['num'], kwargs['step'])
 
 
 @app.usermetric('/total-user-commits', 'sum', 'commits')
 def get_total_user_commits(uid, **kwargs):
     return aggregate('metrics:total-user-commits:{}'.format(uid), kwargs['begin'], kwargs['end'],
-                     kwargs['num'], kwargs['step'], lambda x: sum(x))
+                     kwargs['num'], kwargs['step'])
 
 
 @app.repometric('/avg-repo-commits', 'avg', 'commits')
@@ -93,25 +93,25 @@ def get_avg_repo_commits(rid, **kwargs):
 @app.orgmetric('/avg-commits', 'avg', 'commits')
 def get_avg_org_commits(**kwargs):
     return aggregate('metrics:total-commits', kwargs['begin'], kwargs['end'],
-                     kwargs['num'], kwargs['step'], avg)
+                     kwargs['num'], kwargs['step'], aggr=avg)
 
 
 @app.orgmetric('/total-branches', 'sum', 'branches')
 def get_total_org_branches(**kwargs):
     return aggregate('metrics:total-branches', kwargs['begin'], kwargs['end'],
-                     kwargs['num'], kwargs['step'], lambda x: sum(x))
+                     kwargs['num'], kwargs['step'])
 
 
 @app.repometric('/total-repo-branches', 'sum', 'branches')
 def get_total_repo_branches(rid, **kwargs):
     return aggregate('metrics:total-repo-branches:{}'.format(rid), kwargs['begin'], kwargs['end'],
-                     kwargs['num'], kwargs['step'], lambda x: sum(x))
+                     kwargs['num'], kwargs['step'])
 
 
 @app.orgmetric('/avg-branches', 'avg', 'branches')
 def get_avg_org_branches(**kwargs):
     return aggregate('metrics:total-branches', kwargs['begin'], kwargs['end'],
-                     kwargs['num'], kwargs['step'], avg)
+                     kwargs['num'], kwargs['step'], aggr=avg)
 
 
 @app.orgmetric('/total-developers', 'sum', 'developers')
