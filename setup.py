@@ -28,7 +28,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="SDH-SCM-Metrics",
-    version="0.0.8",
+    version="0.0.9",
     author="Fernando Serena",
     author_email="fernando.serena@centeropenmiddleware.com",
     description="A service that calculates a small set of quantitative metrics on data from a GitLab SCM.",
