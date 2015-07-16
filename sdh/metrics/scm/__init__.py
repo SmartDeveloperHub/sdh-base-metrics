@@ -27,7 +27,7 @@ __author__ = 'Fernando Serena'
 import calendar
 from sdh.metrics.server import MetricsApp
 from sdh.metrics.store.scm import SCMStore
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import types
 import os
 
@@ -137,38 +137,72 @@ def update_interval_repo_developers(begin, end):
     #     store.update_set('metrics:total-repo-developers:{}'.format(repo['name']), begin, obj_value)
 
 
-def aggregate(key, begin, end, num, step, aggr=sum):
+def __build_time_chunk(key, begin, end):
+    _next = begin
+    while _next < end:
+        _end = _next + 86400  # calendar.timegm((datetime.utcfromtimestamp(_next) + timedelta(days=1)).timetuple())
+        stored_values = [eval(res)['v'] for res in store.db.zrangebyscore(key, _next, _end - 1)]
+        if stored_values:
+            for v in stored_values:
+                yield v
+        else:
+            yield 0
+        _next = _end
+
+
+def aggregate(key, begin, end, num, aggr=sum):
+    if begin is None:
+        end_limit = end
+        if end is None:
+            end_limit = '+inf'
+        _, begin = store.db.zrangebyscore(key, '-inf', end_limit, withscores=True, start=0, num=1).pop()
+        data_begin = begin
+    else:
+        _, data_begin = store.db.zrangebyscore(key, '-inf', '+inf', withscores=True, start=0, num=1).pop()
+    if end is None:
+        _, end = store.db.zrevrangebyscore(key, '+inf', begin, withscores=True, start=0, num=1).pop()
+        data_end = end
+    else:
+        _, data_end = store.db.zrevrangebyscore(key, '+inf', '-inf', withscores=True, start=0, num=1).pop()
+
+    begin = calendar.timegm(date.fromtimestamp(begin).timetuple())
+    end = calendar.timegm(date.fromtimestamp(end).timetuple())
+
     step_begin = begin
     values = []
 
-    def build_time_chunk(ts_dict, begin, end):
-        _next = begin
-        while _next <= end:
-            if _next in ts_dict.keys():
-                yield ts_dict[_next]
-            else:
-                yield 0
-            _next = calendar.timegm((datetime.utcfromtimestamp(_next) + timedelta(days=1)).timetuple())
+    step = end - begin
+    if num:
+        step /= num
+    step = max(86400, step)
 
     while step_begin <= end - step:
         step_end = step_begin + step
-        if aggr == sum:
+        if aggr == sum and num:
             chunk = [eval(res)['v'] for res in store.db.zrangebyscore(key, step_begin, step_end)]
         else:
-            stored_values = dict([(int(ts), eval(res)['v']) for res, ts in
-                                  store.db.zrangebyscore(key, step_begin, step_end, withscores=True)])
-            chunk = build_time_chunk(stored_values, step_begin, step_end)
+            chunk = __build_time_chunk(key, step_begin, step_end)
         values.append(chunk)
         step_begin = step_end
 
-    if not num:
-        _, t_ini = store.db.zrangebyscore(key, begin, end, withscores=True, start=0, num=1).pop()
-        elm_0 = values.pop()
-        if any(isinstance(el, list) for el in elm_0):
-            elm_0 = [len(x) for x in elm_0]
-        return t_ini, elm_0
+    if num:
+        result = [aggr(part) for part in values]
+    else:
+        result = list(values.pop())
+        if any(isinstance(el, list) for el in result):
+            result = [len(x) for x in result]
 
-    return [aggr(part) for part in values]
+    return {'begin': begin, 'end': end, 'data_begin': data_begin, 'data_end': data_end, 'step': step}, result
+
+    # if not num:
+    #     _, t_ini = store.db.zrangebyscore(key, begin, end, withscores=True, start=0, num=1).pop()
+    #     _, t_end = store.db.zrevrangebyscore(key, end, begin, withscores=True, start=0, num=1).pop()
+    #     elm_0 = values.pop()
+    #     if any(isinstance(el, list) for el in elm_0):
+    #         elm_0 = [len(x) for x in elm_0]
+    #     return t_ini, elm_0
+    #
+    # return [aggr(part) for part in values]
 
 
 def avg(x):
