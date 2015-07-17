@@ -27,6 +27,7 @@ __author__ = 'Fernando Serena'
 import calendar
 from sdh.metrics.server import MetricsApp
 from sdh.metrics.store.scm import SCMStore
+from sdh.metrics.store import store_calc
 import os
 
 config = os.environ.get('CONFIG', 'sdh.metrics.scm.config.DevelopmentConfig')
@@ -44,7 +45,12 @@ def link_repo_branch((r_uri, _, b_uri)):
 @store.collect('?r doap:name ?n')
 def add_repository((r_uri, _, name)):
     store.execute('hset', 'frag:repos:-{}-:'.format(r_uri), 'name', name.toPython())
-    store.execute('set', 'frag:repos:{}:'.format(name.toPython()), r_uri)
+
+
+@store.collect('?r scm:repositoryId ?rid')
+def add_repository_id((r_uri, _, rid)):
+    store.execute('hset', 'frag:repos:-{}-:'.format(r_uri), 'id', rid.toPython())
+    store.execute('set', 'frag:repos:{}:'.format(rid.toPython()), r_uri)
 
 
 @store.collect('?c scm:createdOn ?t')
@@ -88,49 +94,41 @@ def set_developer_id((d_uri, _, uid)):
 
 @app.calculus(triggers=['add_commit', 'add_branch'])
 def update_interval_repo_metrics(begin, end):
-    for repo in store.get_repositories():
-        value = len(store.get_commits(begin, end, rid=repo['name']))
-        obj_value = {'t': begin, 'v': value}
-        store.update_set('metrics:total-repo-commits:{}'.format(repo['name']), begin, obj_value)
+    for rid in store.get_repositories():
+        value = len(store.get_commits(begin, end, rid=rid))
+        store_calc(store, 'metrics:total-repo-commits:{}'.format(rid), begin, value)
 
-        value = len(store.get_branches(begin, end, rid=repo['uri']))
-        obj_value = {'t': begin, 'v': value}
-        store.update_set('metrics:total-repo-branches:{}'.format(repo['name']), begin, obj_value)
-
-
-def update_interval_user_commits(begin, end):
-    pass
-    # for _, uid in store.get_developers(begin, end):
-    #     value = len(store.get_commits(begin, end, uid=uid))
-    #     obj_value = {'t': begin, 'v': value}
-    #     store.update_set('metrics:total-user-commits:{}'.format(uid), begin, obj_value)
+        value = len(store.get_branches(begin, end, rid=rid))
+        store_calc(store, 'metrics:total-repo-branches:{}'.format(rid), begin, value)
 
 
 @app.calculus(triggers=['add_commit'])
 def update_interval_commits(begin, end):
     value = len(store.get_commits(begin, end))
-    obj_value = {'t': begin, 'v': value}
-    store.update_set('metrics:total-commits', begin, obj_value)
+    store_calc(store, 'metrics:total-commits', begin, value)
 
 
 @app.calculus(triggers=['add_branch'])
 def update_interval_branches(begin, end):
     value = len(store.get_branches(begin, end))
-    obj_value = {'t': begin, 'v': value}
-    store.update_set('metrics:total-branches', begin, obj_value)
+    store_calc(store, 'metrics:total-branches', begin, value)
 
 
+@app.calculus(triggers=['add_commit'])
 def update_interval_developers(begin, end):
-    pass
-    # value = len(store.get_developers(begin, end))
-    # obj_value = {'t': begin, 'v': value}
-    # store.update_set('metrics:total-developers', begin, obj_value)
-
-
-def update_interval_repo_developers(begin, end):
-    pass
-    # for repo in store.get_repositories():
-    #     value = len(store.get_developers(begin, end, rid=repo['uri']))
-    #     obj_value = {'t': begin, 'v': value}
-    #     store.update_set('metrics:total-repo-developers:{}'.format(repo['name']), begin, obj_value)
-
+    devs = store.get_developers(begin, end)
+    if len(devs):
+        store_calc(store, 'metrics:total-developers', begin, devs)
+        total_repo_devs = {}
+        for uid in devs:
+            value = len(store.get_commits(begin, end, uid=uid))
+            store_calc(store, 'metrics:total-user-commits:{}'.format(uid), begin, value)
+            for rid in store.get_repositories():
+                value = len(store.get_commits(begin, end, uid=uid, rid=rid))
+                if rid not in total_repo_devs:
+                    total_repo_devs[rid] = set([])
+                if value:
+                    total_repo_devs[rid].add(uid)
+                store_calc(store, 'metrics:total-repo-user-commits:{}:{}'.format(rid, uid), begin, value)
+        [store_calc(store, 'metrics:total-repo-developers:{}'.format(rid), begin, list(total_repo_devs[rid])) for rid in
+         filter(lambda x: len(total_repo_devs[x]), total_repo_devs)]
