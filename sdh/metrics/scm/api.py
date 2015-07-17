@@ -24,7 +24,7 @@
 
 __author__ = 'Fernando Serena'
 
-from sdh.metrics.scm import app, store
+from sdh.metrics.scm import app, st as store
 from sdh.metrics.store.metrics import aggregate, avg
 import itertools
 
