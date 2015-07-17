@@ -26,7 +26,7 @@ __author__ = 'Fernando Serena'
 
 import calendar
 from sdh.metrics.server import MetricsApp
-from sdh.metrics.store.scm import SCMStore
+from sdh.metrics.scm.store import SCMStore
 from sdh.metrics.store import store_calc
 import os
 

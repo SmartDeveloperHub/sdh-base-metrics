@@ -28,7 +28,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="SDH-SCM-Metrics",
-    version="0.0.9",
+    version="0.0.12",
     author="Fernando Serena",
     author_email="fernando.serena@centeropenmiddleware.com",
     description="A service that calculates a small set of quantitative metrics on data from a GitLab SCM.",
@@ -37,7 +37,7 @@ setup(
     url="https://github.com/smartdeveloperhub/sdh-scm-metrics",
     download_url="https://github.com/smartdeveloperhub/sdh-scm-metrics/tarball/0.0.2",
     packages=find_packages(exclude=['ez_setup', 'examples', 'tests']),
-    namespace_packages=['sdh', 'sdh.metrics', 'sdh.metrics.store'],
+    namespace_packages=['sdh', 'sdh.metrics'],
     install_requires=['SDH-Metrics'],
     classifiers=[],
     scripts=['sdh-scm-metrics']
