@@ -36,7 +36,10 @@ class DevelopmentConfig(Config):
     DEBUG = True
     LOG = logging.DEBUG
     AGORA = 'http://localhost:9001'
-    REDIS = 'localhost'
+    REDIS = {
+        'host': 'localhost',
+        'db': '4'
+    }
 
 class ProductionConfig(Config):
     DEBUG = False
