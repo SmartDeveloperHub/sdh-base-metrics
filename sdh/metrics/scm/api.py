@@ -21,54 +21,60 @@
   limitations under the License.
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
 """
-
-__author__ = 'Fernando Serena'
-
+import calendar
+from datetime import datetime
 from sdh.metrics.scm import app, st as store
 from sdh.metrics.store.metrics import aggregate, avg
 import itertools
 
+__author__ = 'Fernando Serena'
 
-@app.orgtbd('/repositories', 'repositories')
+
+@app.orgview('/repositories', 'repositories')
 def get_repositories(**kwargs):
     return store.get_repositories()
 
 
-@app.orgtbd('/branches', 'branches')
+@app.orgview('/branches', 'branches')
 def get_branches(**kwargs):
     return list(store.get_branches(kwargs['begin'], kwargs['end']))
 
 
-@app.orgtbd('/commits', 'commits')
+@app.orgview('/commits', 'commits')
 def get_commits(**kwargs):
     return list(store.get_commits(kwargs['begin'], kwargs['end']))
 
 
-@app.usertbd('/user-commits', 'commits')
-def get_user_commits(uid, **kwargs):
-    return list(store.get_commits(kwargs['begin'], kwargs['end'], uid=uid))
+@app.memberview('/member-commits', 'commits')
+def get_member_commits(mid, **kwargs):
+    committer_id = store.get_member_id(mid)
+    return list(store.get_commits(kwargs['begin'], kwargs['end'], uid=committer_id))
 
 
-@app.usertbd('/user-repositories', 'repositories')
-def get_user_repositories(uid, **kwargs):
-    commits = store.get_commits(kwargs['begin'], kwargs['end'], uid=uid)
+@app.memberview('/member-repositories', 'repositories')
+def get_member_repositories(mid, **kwargs):
+    committer_id = store.get_member_id(mid)
+    commits = store.get_commits(kwargs['begin'], kwargs['end'], uid=committer_id)
     return list(store.get_commits_repos(commits))
 
 
-@app.userrepotbd('/user-repo-commits', 'commits')
-def get_user_repo_commits(rid, uid, **kwargs):
-    return list(store.get_commits(kwargs['begin'], kwargs['end'], uid=uid, rid=rid))
+@app.memberrepoview('/member-repo-commits', 'commits')
+def get_member_repo_commits(rid, mid, **kwargs):
+    committer_id = store.get_member_id(mid)
+    return list(store.get_commits(kwargs['begin'], kwargs['end'], uid=committer_id, rid=rid))
 
 
-@app.orgtbd('/developers', 'developers')
+@app.orgview('/developers', 'developers')
 def get_developers(**kwargs):
     devs = store.get_developers(kwargs['begin'], kwargs['end'])
+    devs = filter(lambda x: x is not None, map(lambda x: store.get_committer_id(x), devs))
     return list(devs)
 
 
-@app.repotbd('/repo-developers', 'developers')
+@app.repoview('/repo-developers', 'developers')
 def get_repo_developers(rid, **kwargs):
     devs = store.get_developers(kwargs['begin'], kwargs['end'], rid=rid)
+    devs = filter(lambda x: x is not None, map(lambda x: store.get_committer_id(x), devs))
     return list(devs)
 
 
@@ -89,32 +95,38 @@ def get_total_org_repositories(**kwargs):
     return {}, [len(store.get_repositories())]
 
 
-@app.usermetric('/total-user-commits', 'sum', 'commits')
-def get_total_user_commits(uid, **kwargs):
-    return aggregate(store, 'metrics:total-user-commits:{}'.format(uid), kwargs['begin'], kwargs['end'],
+@app.membermetric('/total-member-commits', 'sum', 'commits')
+def get_total_member_commits(mid, **kwargs):
+    committer_id = store.get_member_id(mid)
+    return aggregate(store, 'metrics:total-member-commits:{}'.format(committer_id), kwargs['begin'], kwargs['end'],
                      kwargs['max'])
 
 
-@app.repousermetric('/total-repo-user-commits', 'sum', 'commits')
-def get_total_repo_user_commits(rid, uid, **kwargs):
-    return aggregate(store, 'metrics:total-repo-user-commits:{}:{}'.format(rid, uid), kwargs['begin'], kwargs['end'],
+@app.repomembermetric('/total-repo-member-commits', 'sum', 'commits')
+def get_total_repo_member_commits(rid, mid, **kwargs):
+    committer_id = store.get_member_id(mid)
+    return aggregate(store, 'metrics:total-repo-member-commits:{}:{}'.format(rid, committer_id), kwargs['begin'],
+                     kwargs['end'],
                      kwargs['max'])
 
 
-@app.repousermetric('/avg-repo-user-commits', 'avg', 'commits')
-def get_avg_repo_user_commits(rid, uid, **kwargs):
-    return aggregate(store, 'metrics:total-repo-user-commits:{}:{}'.format(rid, uid), kwargs['begin'], kwargs['end'],
+@app.repomembermetric('/avg-repo-member-commits', 'avg', 'commits')
+def get_avg_repo_member_commits(rid, mid, **kwargs):
+    committer_id = store.get_member_id(mid)
+    return aggregate(store, 'metrics:total-repo-member-commits:{}:{}'.format(rid, committer_id), kwargs['begin'],
+                     kwargs['end'],
                      kwargs['max'], aggr=avg, extend=True)
 
 
-@app.usermetric('/avg-user-commits', 'avg', 'commits')
-def get_avg_user_commits(uid, **kwargs):
-    return aggregate(store, 'metrics:total-user-commits:{}'.format(uid), kwargs['begin'], kwargs['end'],
+@app.membermetric('/avg-member-commits', 'avg', 'commits')
+def get_avg_member_commits(mid, **kwargs):
+    committer_id = store.get_member_id(mid)
+    return aggregate(store, 'metrics:total-member-commits:{}'.format(committer_id), kwargs['begin'], kwargs['end'],
                      kwargs['max'], aggr=avg, extend=True)
 
 
-@app.usermetric('/user-longest-streak', 'sum', 'streak', title='Longest Streak')
-def get_user_longest_streak(uid, **kwargs):
+@app.membermetric('/member-longest-streak', 'sum', 'streak', title='Longest Streak')
+def get_member_longest_streak(mid, **kwargs):
     begin = kwargs.get('begin')
     end = kwargs.get('end')
 
@@ -123,8 +135,10 @@ def get_user_longest_streak(uid, **kwargs):
     if end is None:
         end = calendar.timegm(datetime.utcnow().timetuple())
 
+    committer_id = store.get_member_id(mid)
     ts_commits = [ts for (_, ts) in
-                  store.db.zrangebyscore('metrics:total-user-commits:{}'.format(uid), begin, end, withscores=True)]
+                  store.db.zrangebyscore('metrics:total-member-commits:{}'.format(committer_id), begin, end,
+                                         withscores=True)]
 
     if ts_commits:
         current_ts = ts_commits.pop(0)
@@ -207,3 +221,27 @@ def get_total_repo_developers(rid, **kwargs):
 
     return aggregate(store, 'metrics:total-repo-developers:{}'.format(rid), kwargs['begin'], kwargs['end'],
                      kwargs['max'], aggr, fill=[])
+
+
+@app.productmetric('/total-product-commits', 'sum', 'commits')
+def get_total_product_commits(prid, **kwargs):
+    return aggregate(store, 'metrics:total-product-commits:{}'.format(prid), kwargs['begin'], kwargs['end'],
+                     kwargs['max'])
+
+
+@app.projectmetric('/total-project-commits', 'sum', 'commits')
+def get_total_project_commits(prid, **kwargs):
+    return aggregate(store, 'metrics:total-project-commits:{}'.format(prid), kwargs['begin'], kwargs['end'],
+                     kwargs['max'])
+
+
+@app.productmetric('/total-product-branches', 'sum', 'branches')
+def get_total_product_branches(prid, **kwargs):
+    return aggregate(store, 'metrics:total-product-branches:{}'.format(prid), kwargs['begin'], kwargs['end'],
+                     kwargs['max'])
+
+
+@app.projectmetric('/total-project-branches', 'sum', 'branches')
+def get_total_project_branches(prid, **kwargs):
+    return aggregate(store, 'metrics:total-project-branches:{}'.format(prid), kwargs['begin'], kwargs['end'],
+                     kwargs['max'])

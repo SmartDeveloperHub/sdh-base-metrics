@@ -32,20 +32,30 @@ class Config(object):
     }
     PORT = 5003
 
+
 class DevelopmentConfig(Config):
     DEBUG = True
     LOG = logging.DEBUG
-    AGORA = 'http://localhost:9001'
+    PROVIDER = {
+        'broker_host': 'localhost',
+        'agora_host': 'http://localhost',
+        'agora_port': 9002
+    }
     REDIS = {
         'host': 'localhost',
-        'db': '4'
+        'db': 6
     }
+
 
 class ProductionConfig(Config):
     DEBUG = False
     LOG = logging.INFO
-    AGORA = 'http://planner:5000'
-    REDIS = 'redis'
-
-
-
+    REDIS = {
+        'host': 'redis',
+        'db': 6
+    }
+    PROVIDER = {
+        'broker_host': '138.4.249.224',
+        'agora_host': 'http://138.4.249.224',
+        'agora_port': 9009
+    }

@@ -32,12 +32,16 @@ import re
 
 
 class SCMStore(FragmentStore):
-    def __init__(self, redis_host):
-        super(SCMStore, self).__init__(redis_host)
+    def __init__(self, redis_conf):
+        super(SCMStore, self).__init__(redis_conf)
 
     def get_repositories(self):
         repo_keys = self.db.keys('frag:repos:-*-:')
         return filter(lambda x: x is not None, [self.db.hget(rk, 'id') for rk in repo_keys])
+
+    def get_products(self):
+        repo_keys = self.db.keys('frag:products:-*-:')
+        return filter(lambda x: x is not None, [self.db.hget(rk, 'name') for rk in repo_keys])
 
     def get_repository_branches(self, rid):
         branch_set_keys = self.db.keys('frag:repos:-*-:branches')
@@ -120,3 +124,36 @@ class SCMStore(FragmentStore):
         now = calendar.timegm(datetime.utcnow().timetuple())
         _, t_ini = self.get_commits(0, now, withstamps=True, start=0, limit=1).pop()
         return t_ini
+
+    def get_product_projects(self, prid):
+        product_uri = self.db.get('frag:products:{}:'.format(prid))
+        project_uris = self.db.smembers('frag:products:-{}-:projects'.format(product_uri))
+        return map(lambda x: self.db.hget('frag:projects:-{}-:'.format(x), 'name'), project_uris)
+
+    def get_project_repositories(self, prid):
+        project_uri = self.db.get('frag:projects:{}:'.format(prid))
+        repo_names = self.db.smembers('frag:projects:-{}-:repos'.format(project_uri))
+        repo_uris = map(lambda x: self.db.get('frag:reponames:{}:'.format(x)), repo_names)
+        return map(lambda x: self.db.hget('frag:repos:-{}-:'.format(x), 'id'), repo_uris)
+
+    def get_member_id(self, mid):
+        try:
+            member_uri = self.db.get('frag:members:{}:'.format(mid))
+            member_nick = self.db.hget('frag:members:-{}-:'.format(member_uri), 'nick')
+            if member_nick == 'AlejandroVera':
+                member_nick = 'avera'
+            committer_uri = self.db.get('frag:devs:{}:'.format(member_nick))
+            return self.db.hget('frag:devs:-{}-'.format(committer_uri), 'id')
+        except:
+            return None
+
+    def get_committer_id(self, cid):
+        try:
+            committer_uri = self.db.get('frag:devs:{}:'.format(cid))
+            committer_nick = self.db.hget('frag:devs:-{}-'.format(committer_uri), 'nick')
+            if committer_nick == 'avera':
+                committer_nick = 'AlejandroVera'
+            member_uri = self.db.get('frag:members:{}:'.format(committer_nick))
+            return self.db.hget('frag:members:-{}-:'.format(member_uri), 'id')
+        except:
+            return None
