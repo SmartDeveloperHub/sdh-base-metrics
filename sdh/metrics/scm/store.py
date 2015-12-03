@@ -32,8 +32,8 @@ import re
 
 
 class SCMStore(FragmentStore):
-    def __init__(self, redis_conf):
-        super(SCMStore, self).__init__(redis_conf)
+    def __init__(self, **kwargs):
+        super(SCMStore, self).__init__(**kwargs)
 
     def get_repositories(self):
         repo_keys = self.db.keys('frag:repos:-*-:')

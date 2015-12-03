@@ -22,40 +22,47 @@
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
 """
 
+import logging
+import os
+
 __author__ = 'Fernando Serena'
 
-import logging
+
+def _api_port():
+    return int(os.environ.get('API_PORT', 5003))
+
+
+def _redis_conf(def_host, def_db, def_port):
+    return {'host': os.environ.get('DB_HOST', def_host),
+            'db': os.environ.get('DB_DB', def_db),
+            'port': os.environ.get('DB_PORT', def_port)}
+
+
+def _agora_conf(def_host, def_port):
+    return {'agora_host': os.environ.get('AGORA_HOST', def_host),
+            'agora_port': os.environ.get('AGORA_PORT', def_port)}
+
+
+def _broker_conf(def_host, def_port):
+    return {'broker_host': os.environ.get('BROKER_HOST', def_host),
+            'broker_port': os.environ.get('BROKER_PORT', def_port)}
 
 class Config(object):
-    STORE_PATHS = {
-        'graph': 'graph_store'
-    }
-    PORT = 5003
+    PORT = _api_port()
 
 
 class DevelopmentConfig(Config):
     DEBUG = True
     LOG = logging.DEBUG
-    PROVIDER = {
-        'broker_host': 'localhost',
-        'agora_host': 'http://localhost',
-        'agora_port': 9002
-    }
-    REDIS = {
-        'host': 'localhost',
-        'db': 6
-    }
+    PROVIDER = _broker_conf('localhost', 5672)
+    PROVIDER.update(_agora_conf('localhost', 9002))
+    REDIS = _redis_conf('localhost', 6, 6379)
 
 
 class ProductionConfig(Config):
     DEBUG = False
     LOG = logging.INFO
-    REDIS = {
-        'host': 'redis',
-        'db': 6
-    }
-    PROVIDER = {
-        'broker_host': '138.4.249.224',
-        'agora_host': 'http://138.4.249.224',
-        'agora_port': 9009
-    }
+    PROVIDER = _broker_conf('138.4.249.224', 5672)
+    PROVIDER.update(_agora_conf('138.4.249.224', 9009))
+    REDIS = _redis_conf('redis', 6, 6379)
+

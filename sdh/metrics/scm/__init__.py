@@ -34,7 +34,8 @@ import os
 config = os.environ.get('CONFIG', 'sdh.metrics.scm.config.DevelopmentConfig')
 
 app = MetricsApp(__name__, config)
-st = SCMStore(app.config['REDIS'])
+redis_conf = app.config['REDIS']
+st = SCMStore(**redis_conf)
 app.store = st
 
 
