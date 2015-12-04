@@ -23,6 +23,7 @@
 """
 import calendar
 from datetime import datetime
+from sdh.fragments.server.base import APIError
 from sdh.metrics.scm import app, st as store
 from sdh.metrics.store.metrics import aggregate, avg
 from sdh.metrics.server import SCM, ORG
@@ -31,79 +32,102 @@ import itertools
 __author__ = 'Fernando Serena'
 
 
-@app.view('/repositories', target=SCM.Repository)
+@app.view('/repositories', target=SCM.Repository, id='repositories')
 def get_repositories(**kwargs):
     return store.get_repositories()
 
 
-@app.view('/branches', target=SCM.Branch)
+@app.view('/branches', target=SCM.Branch, id='branches')
 def get_branches(**kwargs):
     return list(store.get_branches(kwargs['begin'], kwargs['end']))
 
 
-@app.view('/commits', target=SCM.Commit)
+@app.view('/commits', target=SCM.Commit, id='commits')
 def get_commits(**kwargs):
     return list(store.get_commits(kwargs['begin'], kwargs['end']))
 
 
-@app.view('/member-commits', target=SCM.Commit, parameters=[ORG.Person])
+@app.view('/member-commits', target=SCM.Commit, parameters=[ORG.Person], id='member-commits')
 def get_member_commits(mid, **kwargs):
     committer_id = store.get_member_id(mid)
     return list(store.get_commits(kwargs['begin'], kwargs['end'], uid=committer_id))
 
 
-@app.view('/member-repositories', target=SCM.Repository, parameters=[ORG.Person])
+@app.view('/member-repositories', target=SCM.Repository, parameters=[ORG.Person],
+          id='member-repositories')
 def get_member_repositories(mid, **kwargs):
     committer_id = store.get_member_id(mid)
     commits = store.get_commits(kwargs['begin'], kwargs['end'], uid=committer_id)
     return list(store.get_commits_repos(commits))
 
 
-@app.view('/member-repo-commits', target=SCM.Commit, parameters=[SCM.Repository, ORG.Person])
+@app.view('/member-repo-commits', target=SCM.Commit, parameters=[SCM.Repository, ORG.Person],
+          id='member-repository-commits')
 def get_member_repo_commits(rid, mid, **kwargs):
     committer_id = store.get_member_id(mid)
     return list(store.get_commits(kwargs['begin'], kwargs['end'], uid=committer_id, rid=rid))
 
 
-@app.view('/developers', target=ORG.Person)
+@app.view('/developers', target=ORG.Person, id='developers')
 def get_developers(**kwargs):
     devs = store.get_developers(kwargs['begin'], kwargs['end'])
     devs = filter(lambda x: x is not None, map(lambda x: store.get_committer_id(x), devs))
     return list(devs)
 
 
-@app.view('/repo-developers', parameters=[SCM.Repository], target=ORG.Person, title='Developers')
+@app.view('/repo-developers', parameters=[SCM.Repository], target=ORG.Person, title='Developers',
+          id='repository-developers')
 def get_repo_developers(rid, **kwargs):
     devs = store.get_developers(kwargs['begin'], kwargs['end'], rid=rid)
     devs = filter(lambda x: x is not None, map(lambda x: store.get_committer_id(x), devs))
     return list(devs)
 
 
-@app.metric('/total-repo-commits', parameters=[SCM.Repository], title='Commits')
+@app.metric('/total-repo-commits', parameters=[SCM.Repository], title='Commits', id='repository-commits')
 def get_total_repo_commits(rid, **kwargs):
     return aggregate(store, 'metrics:total-repo-commits:{}'.format(rid), kwargs['begin'], kwargs['end'],
                      kwargs['max'])
 
 
-@app.metric('/total-commits', title='Commits')
+@app.metric('/total-commits', title='Commits', id='commits')
 def get_total_org_commits(**kwargs):
     return aggregate(store, 'metrics:total-commits', kwargs['begin'], kwargs['end'],
                      kwargs['max'])
 
 
-@app.metric('/total-repositories', title='Repository')
+@app.metric('/total-repositories', title='Repository', id='repositories')
 def get_total_org_repositories(**kwargs):
     return {}, [len(store.get_repositories())]
 
 
-@app.metric('/total-member-commits', parameters=[ORG.Person], title='Commits')
+@app.metric('/total-member-commits', parameters=[ORG.Person], title='Commits', id='member-commits')
 def get_total_member_commits(mid, **kwargs):
     committer_id = store.get_member_id(mid)
     return aggregate(store, 'metrics:total-member-commits:{}'.format(committer_id), kwargs['begin'], kwargs['end'],
                      kwargs['max'])
 
 
-@app.metric('/total-repo-member-commits', parameters=[SCM.Repository, ORG.Person], title='Commits')
+@app.metric('/member-activity', parameters=[ORG.Person], title='Activity', id='member-activity')
+def get_member_activity(mid, **kwargs):
+    committer_id = store.get_member_id(mid)
+    context, member_res = aggregate(store, 'metrics:total-member-commits:{}'.format(committer_id), kwargs['begin'],
+                                    kwargs['end'],
+                                    kwargs['max'])
+    # Align query params with the local context just obtained
+    kwargs['begin'] = int(context['begin'])
+    kwargs['end'] = int(context['end'])
+    kwargs['max'] = len(member_res)
+    try:
+        # I know that there should be a metric called 'sum-commits' that calculates totals about commits
+        _, global_res = app.request_metric('sum-commits', **kwargs)
+        activity = [float(m) / float(g) if g else 0 for m, g in zip(member_res, global_res)]
+        return context, activity
+    except (EnvironmentError, AttributeError) as e:
+        raise APIError(e.message)
+
+
+@app.metric('/total-repo-member-commits', parameters=[SCM.Repository, ORG.Person], title='Commits',
+            id='repository-member-commits')
 def get_total_repo_member_commits(rid, mid, **kwargs):
     committer_id = store.get_member_id(mid)
     return aggregate(store, 'metrics:total-repo-member-commits:{}:{}'.format(rid, committer_id), kwargs['begin'],
@@ -111,7 +135,8 @@ def get_total_repo_member_commits(rid, mid, **kwargs):
                      kwargs['max'])
 
 
-@app.metric('/avg-repo-member-commits', aggr='avg', parameters=[SCM.Repository, ORG.Person], title='Commits')
+@app.metric('/avg-repo-member-commits', aggr='avg', parameters=[SCM.Repository, ORG.Person], title='Commits',
+            id='repository-member-commits')
 def get_avg_repo_member_commits(rid, mid, **kwargs):
     committer_id = store.get_member_id(mid)
     return aggregate(store, 'metrics:total-repo-member-commits:{}:{}'.format(rid, committer_id), kwargs['begin'],
@@ -119,14 +144,14 @@ def get_avg_repo_member_commits(rid, mid, **kwargs):
                      kwargs['max'], aggr=avg, extend=True)
 
 
-@app.metric('/avg-member-commits', aggr='avg', parameters=[ORG.Person], title='Commits')
+@app.metric('/avg-member-commits', aggr='avg', parameters=[ORG.Person], title='Commits', id='member-commits')
 def get_avg_member_commits(mid, **kwargs):
     committer_id = store.get_member_id(mid)
     return aggregate(store, 'metrics:total-member-commits:{}'.format(committer_id), kwargs['begin'], kwargs['end'],
                      kwargs['max'], aggr=avg, extend=True)
 
 
-@app.metric('/member-longest-streak', parameters=[ORG.Person], title='Longest Streak')
+@app.metric('/member-longest-streak', parameters=[ORG.Person], title='Longest Streak', id='member-longest-streak')
 def get_member_longest_streak(mid, **kwargs):
     begin = kwargs.get('begin')
     end = kwargs.get('end')
@@ -157,37 +182,37 @@ def get_member_longest_streak(mid, **kwargs):
         return {}, [0]
 
 
-@app.metric('/avg-repo-commits', aggr='avg', parameters=[SCM.Repository], title='Commits/repo')
+@app.metric('/avg-repo-commits', aggr='avg', parameters=[SCM.Repository], title='Commits/repo', id='repository-commits')
 def get_avg_repo_commits(rid, **kwargs):
     return aggregate(store, 'metrics:total-repo-commits:{}'.format(rid), kwargs['begin'], kwargs['end'],
                      kwargs['max'], aggr=avg, extend=True)
 
 
-@app.metric('/avg-commits', aggr='avg', title='Commits')
+@app.metric('/avg-commits', aggr='avg', title='Commits', id='commits')
 def get_avg_org_commits(**kwargs):
     return aggregate(store, 'metrics:total-commits', kwargs['begin'], kwargs['end'],
                      kwargs['max'], aggr=avg, extend=True)
 
 
-@app.metric('/total-branches', title='Commits')
+@app.metric('/total-branches', title='Commits', id='branches')
 def get_total_org_branches(**kwargs):
     return aggregate(store, 'metrics:total-branches', kwargs['begin'], kwargs['end'],
                      kwargs['max'])
 
 
-@app.metric('/total-repo-branches', parameters=[SCM.Repository], title='Branches')
+@app.metric('/total-repo-branches', parameters=[SCM.Repository], title='Branches', id='repository-branches')
 def get_total_repo_branches(rid, **kwargs):
     return aggregate(store, 'metrics:total-repo-branches:{}'.format(rid), kwargs['begin'], kwargs['end'],
                      kwargs['max'])
 
 
-@app.metric('/avg-branches', aggr='avg', title='Branches')
+@app.metric('/avg-branches', aggr='avg', title='Branches', id='branches')
 def get_avg_org_branches(**kwargs):
     return aggregate(store, 'metrics:total-branches', kwargs['begin'], kwargs['end'],
                      kwargs['max'], aggr=avg, extend=True)
 
 
-@app.metric('/total-developers', title='Developers')
+@app.metric('/total-developers', title='Developers', id='developers')
 def get_total_org_developers(**kwargs):
     def aggr_whole(x):
         return [len(elm) for elm in x]
@@ -207,7 +232,7 @@ def get_total_org_developers(**kwargs):
     return context, result
 
 
-@app.metric('/total-repo-developers', parameters=[SCM.Repository], title='Developers')
+@app.metric('/total-repo-developers', parameters=[SCM.Repository], title='Developers', id='repository-developers')
 def get_total_repo_developers(rid, **kwargs):
     def aggr_whole(x):
         return x
@@ -224,25 +249,25 @@ def get_total_repo_developers(rid, **kwargs):
                      kwargs['max'], aggr, fill=[])
 
 
-@app.metric('/total-product-commits', parameters=[ORG.Product], title='Commits')
+@app.metric('/total-product-commits', parameters=[ORG.Product], title='Commits', id='product-commits')
 def get_total_product_commits(prid, **kwargs):
     return aggregate(store, 'metrics:total-product-commits:{}'.format(prid), kwargs['begin'], kwargs['end'],
                      kwargs['max'])
 
 
-@app.metric('/total-project-commits', parameters=[ORG.Project], title='Commits')
+@app.metric('/total-project-commits', parameters=[ORG.Project], title='Commits', id='project-commits')
 def get_total_project_commits(prid, **kwargs):
     return aggregate(store, 'metrics:total-project-commits:{}'.format(prid), kwargs['begin'], kwargs['end'],
                      kwargs['max'])
 
 
-@app.metric('/total-product-branches', parameters=[ORG.Product], title='Branches')
+@app.metric('/total-product-branches', parameters=[ORG.Product], title='Branches', id='product-branches')
 def get_total_product_branches(prid, **kwargs):
     return aggregate(store, 'metrics:total-product-branches:{}'.format(prid), kwargs['begin'], kwargs['end'],
                      kwargs['max'])
 
 
-@app.metric('/total-project-branches', parameters=[ORG.Project], title='Branches')
+@app.metric('/total-project-branches', parameters=[ORG.Project], title='Branches', id='project-branches')
 def get_total_project_branches(prid, **kwargs):
     return aggregate(store, 'metrics:total-project-branches:{}'.format(prid), kwargs['begin'], kwargs['end'],
                      kwargs['max'])
