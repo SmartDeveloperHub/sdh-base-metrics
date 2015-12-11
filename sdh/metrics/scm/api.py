@@ -25,7 +25,7 @@ import calendar
 from datetime import datetime
 from sdh.fragments.server.base import APIError
 from sdh.metrics.scm import app, st as store
-from sdh.metrics.store.metrics import aggregate, avg
+from sdh.metrics.store.metrics import aggregate, avg, flat_sum
 from sdh.metrics.server import SCM, ORG
 import itertools
 
@@ -56,6 +56,28 @@ def get_repo_developers(rid, **kwargs):
     devs = filter(lambda x: x is not None, map(lambda x: store.get_committer_id(x[0]), devs))
     return list(store.get_developer_uris(*devs))
 
+
+@app.view('/project-developers', parameters=[ORG.Project], target=ORG.Person, title='Developers',
+          id='project-developers')
+def get_project_developers(pjid, **kwargs):
+    repos = store.get_project_repositories(pjid)
+    devs = set([])
+    for rid in repos:
+        devs = set.union(devs, store.get_developers(kwargs['begin'], kwargs['end'], rid=rid))
+    devs = filter(lambda x: x is not None, map(lambda x: store.get_committer_id(x[0]), devs))
+    return list(store.get_developer_uris(*set(devs)))
+
+
+@app.view('/product-developers', parameters=[ORG.Product], target=ORG.Person, title='Developers',
+          id='product-developers')
+def get_product_developers(prid, **kwargs):
+    repos = map(lambda x: store.get_project_repositories(x), store.get_product_projects(prid))
+    repos = flat_sum(repos)
+    devs = set([])
+    for rid in repos:
+        devs = set.union(devs, store.get_developers(kwargs['begin'], kwargs['end'], rid=rid))
+    devs = filter(lambda x: x is not None, map(lambda x: store.get_committer_id(x[0]), devs))
+    return list(store.get_developer_uris(*set(devs)))
 
 @app.metric('/total-repo-commits', parameters=[SCM.Repository], title='Commits', id='repository-commits')
 def get_total_repo_commits(rid, **kwargs):
