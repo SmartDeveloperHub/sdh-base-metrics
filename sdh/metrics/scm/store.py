@@ -57,7 +57,7 @@ class SCMStore(FragmentStore):
         for b_key in all_branches_keys:
             r_uri = pattern.findall(b_key).pop()
             rid = self.db.hget('frag:repos:-{}-:'.format(r_uri), 'id')
-            if rid not in repos:
+            if rid is not None and rid not in repos:
                 repo_branches = self.db.smembers(b_key)
                 for b_uri in repo_branches:
                     branch_commits_key = 'frag:branches:-{}-:commits'.format(b_uri)
@@ -65,6 +65,10 @@ class SCMStore(FragmentStore):
                         repos.add(rid)
         self.db.delete(temp_key)
         return repos
+
+    def get_repo_uris(self, *rids):
+        for rid in rids:
+            yield {'rid': rid, 'uri': self.db.get('frag:repos:{}:'.format(rid))}
 
     def get_commits(self, begin=0, end=None, rid=None, bid=None, uid=None, withstamps=False, limit=None, start=None):
         if end is None:
@@ -114,10 +118,16 @@ class SCMStore(FragmentStore):
         commits = self.get_commits(begin, end, rid=rid, withstamps=withstamps, limit=limit, start=start)
         if len(commits):
             developers = set([self.db.hget('frag:commits:-{}-'.format(c), 'by') for c in commits])
-            developers = [self.db.hget('frag:devs:-{}-'.format(d_uri), 'id') for d_uri in developers]
-            return filter(lambda x: x is not None, developers)
+            developers = [tuple(self.db.hmget('frag:devs:-{}-'.format(d_uri), 'id', 'external')) for d_uri in
+                          developers]
+            return map(lambda (did, external): (did, external == 'True'),
+                       filter(lambda x: x is not None and x[1] is not None, developers))
 
-        return commits
+        return []
+
+    def get_developer_uris(self, *devs):
+        for dev in devs:
+            yield {'uid': dev, 'uri': self.db.get('frag:members:{}:'.format(dev))}
 
     @property
     def first_date(self):
@@ -128,20 +138,20 @@ class SCMStore(FragmentStore):
     def get_product_projects(self, prid):
         product_uri = self.db.get('frag:products:{}:'.format(prid))
         project_uris = self.db.smembers('frag:products:-{}-:projects'.format(product_uri))
-        return map(lambda x: self.db.hget('frag:projects:-{}-:'.format(x), 'name'), project_uris)
+        return filter(lambda x: x is not None,
+                      map(lambda x: self.db.hget('frag:projects:-{}-:'.format(x), 'name'), project_uris))
 
     def get_project_repositories(self, prid):
         project_uri = self.db.get('frag:projects:{}:'.format(prid))
         repo_names = self.db.smembers('frag:projects:-{}-:repos'.format(project_uri))
         repo_uris = map(lambda x: self.db.get('frag:reponames:{}:'.format(x)), repo_names)
-        return map(lambda x: self.db.hget('frag:repos:-{}-:'.format(x), 'id'), repo_uris)
+        return filter(lambda x: x is not None,
+                      map(lambda x: self.db.hget('frag:repos:-{}-:'.format(x), 'id'), repo_uris))
 
     def get_member_id(self, mid):
         try:
             member_uri = self.db.get('frag:members:{}:'.format(mid))
             member_nick = self.db.hget('frag:members:-{}-:'.format(member_uri), 'nick')
-            if member_nick == 'AlejandroVera':
-                member_nick = 'avera'
             committer_uri = self.db.get('frag:devs:{}:'.format(member_nick))
             return self.db.hget('frag:devs:-{}-'.format(committer_uri), 'id')
         except:
@@ -151,8 +161,6 @@ class SCMStore(FragmentStore):
         try:
             committer_uri = self.db.get('frag:devs:{}:'.format(cid))
             committer_nick = self.db.hget('frag:devs:-{}-'.format(committer_uri), 'nick')
-            if committer_nick == 'avera':
-                committer_nick = 'AlejandroVera'
             member_uri = self.db.get('frag:members:{}:'.format(committer_nick))
             return self.db.hget('frag:members:-{}-:'.format(member_uri), 'id')
         except:

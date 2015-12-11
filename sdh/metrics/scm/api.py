@@ -32,55 +32,29 @@ import itertools
 __author__ = 'Fernando Serena'
 
 
-@app.view('/repositories', target=SCM.Repository, id='repositories')
-def get_repositories(**kwargs):
-    return store.get_repositories()
-
-
-@app.view('/branches', target=SCM.Branch, id='branches')
-def get_branches(**kwargs):
-    return list(store.get_branches(kwargs['begin'], kwargs['end']))
-
-
-@app.view('/commits', target=SCM.Commit, id='commits')
-def get_commits(**kwargs):
-    return list(store.get_commits(kwargs['begin'], kwargs['end']))
-
-
-@app.view('/member-commits', target=SCM.Commit, parameters=[ORG.Person], id='member-commits')
-def get_member_commits(mid, **kwargs):
-    committer_id = store.get_member_id(mid)
-    return list(store.get_commits(kwargs['begin'], kwargs['end'], uid=committer_id))
-
-
 @app.view('/member-repositories', target=SCM.Repository, parameters=[ORG.Person],
           id='member-repositories')
 def get_member_repositories(mid, **kwargs):
     committer_id = store.get_member_id(mid)
+    if committer_id is None:
+        return []
     commits = store.get_commits(kwargs['begin'], kwargs['end'], uid=committer_id)
-    return list(store.get_commits_repos(commits))
-
-
-@app.view('/member-repo-commits', target=SCM.Commit, parameters=[SCM.Repository, ORG.Person],
-          id='member-repository-commits')
-def get_member_repo_commits(rid, mid, **kwargs):
-    committer_id = store.get_member_id(mid)
-    return list(store.get_commits(kwargs['begin'], kwargs['end'], uid=committer_id, rid=rid))
+    return list(store.get_repo_uris(*store.get_commits_repos(commits)))
 
 
 @app.view('/developers', target=ORG.Person, id='developers')
 def get_developers(**kwargs):
     devs = store.get_developers(kwargs['begin'], kwargs['end'])
-    devs = filter(lambda x: x is not None, map(lambda x: store.get_committer_id(x), devs))
-    return list(devs)
+    devs = filter(lambda x: x is not None, map(lambda x: store.get_committer_id(x[0]), devs))
+    return list(store.get_developer_uris(*devs))
 
 
 @app.view('/repo-developers', parameters=[SCM.Repository], target=ORG.Person, title='Developers',
           id='repository-developers')
 def get_repo_developers(rid, **kwargs):
     devs = store.get_developers(kwargs['begin'], kwargs['end'], rid=rid)
-    devs = filter(lambda x: x is not None, map(lambda x: store.get_committer_id(x), devs))
-    return list(devs)
+    devs = filter(lambda x: x is not None, map(lambda x: store.get_committer_id(x[0]), devs))
+    return list(store.get_developer_uris(*devs))
 
 
 @app.metric('/total-repo-commits', parameters=[SCM.Repository], title='Commits', id='repository-commits')
@@ -121,6 +95,62 @@ def get_member_activity(mid, **kwargs):
         # I know that there should be a metric called 'sum-commits' that calculates totals about commits
         _, global_res = app.request_metric('sum-commits', **kwargs)
         activity = [float(m) / float(g) if g else 0 for m, g in zip(member_res, global_res)]
+        return context, activity
+    except (EnvironmentError, AttributeError) as e:
+        raise APIError(e.message)
+
+
+@app.metric('/repo-activity', parameters=[SCM.Repository], title='Activity', id='repository-activity')
+def get_repo_activity(rid, **kwargs):
+    context, repo_res = aggregate(store, 'metrics:total-repo-commits:{}'.format(rid), kwargs['begin'],
+                                  kwargs['end'],
+                                  kwargs['max'])
+    # Align query params with the local context just obtained
+    kwargs['begin'] = int(context['begin'])
+    kwargs['end'] = int(context['end'])
+    kwargs['max'] = len(repo_res)
+    try:
+        # I know that there should be a metric called 'sum-commits' that calculates totals about commits
+        _, global_res = app.request_metric('sum-commits', **kwargs)
+        activity = [float(m) / float(g) if g else 0 for m, g in zip(repo_res, global_res)]
+        return context, activity
+    except (EnvironmentError, AttributeError) as e:
+        raise APIError(e.message)
+
+
+@app.metric('/member-repo-activity', parameters=[SCM.Repository, ORG.Person], title='Activity',
+            id='repository-member-activity')
+def get_member_repo_activity(rid, mid, **kwargs):
+    committer_id = store.get_member_id(mid)
+    context, repo_res = aggregate(store, 'metrics:total-repo-member-commits:{}:{}'.format(rid, committer_id),
+                                  kwargs['begin'],
+                                  kwargs['end'],
+                                  kwargs['max'])
+    kwargs['begin'] = int(context['begin'])
+    kwargs['end'] = int(context['end'])
+    kwargs['max'] = len(repo_res)
+    try:
+        _, member_res = app.request_metric('sum-member-commits', uid=mid, **kwargs)
+        activity = [float(m) / float(g) if g else 0 for m, g in zip(repo_res, member_res)]
+        return context, activity
+    except (EnvironmentError, AttributeError) as e:
+        raise APIError(e.message)
+
+
+@app.metric('/repo-member-activity', parameters=[SCM.Repository, ORG.Person], title='Activity',
+            id='member-activity-in-repository')
+def get_member_activity_in_repository(rid, mid, **kwargs):
+    committer_id = store.get_member_id(mid)
+    context, member_res = aggregate(store, 'metrics:total-repo-member-commits:{}:{}'.format(rid, committer_id),
+                                    kwargs['begin'],
+                                    kwargs['end'],
+                                    kwargs['max'])
+    kwargs['begin'] = int(context['begin'])
+    kwargs['end'] = int(context['end'])
+    kwargs['max'] = len(member_res)
+    try:
+        _, repo_res = app.request_metric('sum-repository-commits', rid=rid, **kwargs)
+        activity = [float(m) / float(g) if g else 0 for m, g in zip(member_res, repo_res)]
         return context, activity
     except (EnvironmentError, AttributeError) as e:
         raise APIError(e.message)
@@ -212,16 +242,17 @@ def get_avg_org_branches(**kwargs):
                      kwargs['max'], aggr=avg, extend=True)
 
 
+def aggr_whole(x):
+    return [len(elm) for elm in x]
+
+
+def dev_aggr(x):
+    chain = itertools.chain(*list(x))
+    return len(set(list(chain)))
+
 @app.metric('/total-developers', title='Developers', id='developers')
 def get_total_org_developers(**kwargs):
-    def aggr_whole(x):
-        return [len(elm) for elm in x]
-
-    def __aggr(x):
-        chain = itertools.chain(*list(x))
-        return len(set(list(chain)))
-
-    aggr = __aggr
+    aggr = dev_aggr
     if not kwargs['max']:
         aggr = aggr_whole
 
@@ -232,16 +263,22 @@ def get_total_org_developers(**kwargs):
     return context, result
 
 
+@app.metric('/total-externals', title='Externals', id='externals')
+def get_total_org_externals(**kwargs):
+    aggr = dev_aggr
+    if not kwargs['max']:
+        aggr = aggr_whole
+
+    context, result = aggregate(store, 'metrics:total-externals', kwargs['begin'], kwargs['end'],
+                                kwargs['max'], aggr, fill=[])
+    if aggr == aggr_whole:
+        result = result.pop()
+    return context, result
+
+
 @app.metric('/total-repo-developers', parameters=[SCM.Repository], title='Developers', id='repository-developers')
 def get_total_repo_developers(rid, **kwargs):
-    def aggr_whole(x):
-        return x
-
-    def __aggr(x):
-        chain = itertools.chain(*x)
-        return len(set(list(chain)))
-
-    aggr = __aggr
+    aggr = dev_aggr
     if not kwargs['max']:
         aggr = aggr_whole
 
@@ -261,13 +298,29 @@ def get_total_project_commits(prid, **kwargs):
                      kwargs['max'])
 
 
-@app.metric('/total-product-branches', parameters=[ORG.Product], title='Branches', id='product-branches')
-def get_total_product_branches(prid, **kwargs):
-    return aggregate(store, 'metrics:total-product-branches:{}'.format(prid), kwargs['begin'], kwargs['end'],
-                     kwargs['max'])
+@app.metric('/total-product-developers', parameters=[ORG.Product], title='Commits', id='product-developers')
+def get_total_product_developers(prid, **kwargs):
+    aggr = dev_aggr
+    if not kwargs['max']:
+        aggr = aggr_whole
+
+    context, result = aggregate(store, 'metrics:total-product-developers:{}'.format(prid), kwargs['begin'],
+                                kwargs['end'],
+                                kwargs['max'], aggr, fill=[])
+    if aggr == aggr_whole:
+        result = result.pop()
+    return context, result
 
 
-@app.metric('/total-project-branches', parameters=[ORG.Project], title='Branches', id='project-branches')
-def get_total_project_branches(prid, **kwargs):
-    return aggregate(store, 'metrics:total-project-branches:{}'.format(prid), kwargs['begin'], kwargs['end'],
-                     kwargs['max'])
+@app.metric('/total-project-developers', parameters=[ORG.Project], title='Commits', id='project-developers')
+def get_total_project_developers(prid, **kwargs):
+    aggr = dev_aggr
+    if not kwargs['max']:
+        aggr = aggr_whole
+
+    context, result = aggregate(store, 'metrics:total-project-developers:{}'.format(prid), kwargs['begin'],
+                                kwargs['end'],
+                                kwargs['max'], aggr, fill=[])
+    if aggr == aggr_whole:
+        result = result.pop()
+    return context, result
