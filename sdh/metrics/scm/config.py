@@ -47,13 +47,18 @@ def _broker_conf(def_host, def_port):
     return {'broker_host': os.environ.get('BROKER_HOST', def_host),
             'broker_port': os.environ.get('BROKER_PORT', def_port)}
 
+
+def _logging_conf(def_level):
+    return int(os.environ.get('LOG_LEVEL', def_level))
+
+
 class Config(object):
     PORT = _api_port()
 
 
 class DevelopmentConfig(Config):
     DEBUG = True
-    LOG = logging.DEBUG
+    LOG = _logging_conf(logging.DEBUG)
     PROVIDER = _broker_conf('localhost', 5672)
     PROVIDER.update(_agora_conf('localhost', 9002))
     # PROVIDER = _broker_conf('138.4.249.224', 5672)
@@ -63,7 +68,7 @@ class DevelopmentConfig(Config):
 
 class ProductionConfig(Config):
     DEBUG = False
-    LOG = logging.INFO
+    LOG = _logging_conf(logging.INFO)
     PROVIDER = _broker_conf('138.4.249.224', 5672)
     PROVIDER.update(_agora_conf('138.4.249.224', 9009))
     REDIS = _redis_conf('redis', 6, 6379)
