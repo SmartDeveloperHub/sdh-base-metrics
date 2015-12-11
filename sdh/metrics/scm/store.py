@@ -68,7 +68,7 @@ class SCMStore(FragmentStore):
 
     def get_repo_uris(self, *rids):
         for rid in rids:
-            yield {'rid': rid, 'uri': self.db.get('frag:repos:{}:'.format(rid))}
+            yield {'id': rid, 'uri': self.db.get('frag:repos:{}:'.format(rid))}
 
     def get_commits(self, begin=0, end=None, rid=None, bid=None, uid=None, withstamps=False, limit=None, start=None):
         if end is None:
@@ -127,7 +127,7 @@ class SCMStore(FragmentStore):
 
     def get_developer_uris(self, *devs):
         for dev in devs:
-            yield {'uid': dev, 'uri': self.db.get('frag:members:{}:'.format(dev))}
+            yield {'id': dev, 'uri': self.db.get('frag:members:{}:'.format(dev))}
 
     @property
     def first_date(self):

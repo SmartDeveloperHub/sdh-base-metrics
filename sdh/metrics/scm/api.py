@@ -156,6 +156,41 @@ def get_member_activity_in_repository(rid, mid, **kwargs):
         raise APIError(e.message)
 
 
+@app.metric('/project-activity', parameters=[ORG.Project], title='Activity', id='project-activity')
+def get_project_activity(pjid, **kwargs):
+    context, project_res = aggregate(store, 'metrics:total-project-commits:{}'.format(pjid), kwargs['begin'],
+                                     kwargs['end'],
+                                     kwargs['max'])
+    # Align query params with the local context just obtained
+    kwargs['begin'] = int(context['begin'])
+    kwargs['end'] = int(context['end'])
+    kwargs['max'] = len(project_res)
+    try:
+        # I know that there should be a metric called 'sum-commits' that calculates totals about commits
+        _, global_res = app.request_metric('sum-commits', **kwargs)
+        activity = [float(m) / float(g) if g else 0 for m, g in zip(project_res, global_res)]
+        return context, activity
+    except (EnvironmentError, AttributeError) as e:
+        raise APIError(e.message)
+
+
+@app.metric('/product-activity', parameters=[ORG.Product], title='Activity', id='product-activity')
+def get_product_activity(prid, **kwargs):
+    context, project_res = aggregate(store, 'metrics:total-product-commits:{}'.format(prid), kwargs['begin'],
+                                     kwargs['end'],
+                                     kwargs['max'])
+    # Align query params with the local context just obtained
+    kwargs['begin'] = int(context['begin'])
+    kwargs['end'] = int(context['end'])
+    kwargs['max'] = len(project_res)
+    try:
+        # I know that there should be a metric called 'sum-commits' that calculates totals about commits
+        _, global_res = app.request_metric('sum-commits', **kwargs)
+        activity = [float(m) / float(g) if g else 0 for m, g in zip(project_res, global_res)]
+        return context, activity
+    except (EnvironmentError, AttributeError) as e:
+        raise APIError(e.message)
+
 @app.metric('/total-repo-member-commits', parameters=[SCM.Repository, ORG.Person], title='Commits',
             id='repository-member-commits')
 def get_total_repo_member_commits(rid, mid, **kwargs):
@@ -319,6 +354,34 @@ def get_total_project_developers(prid, **kwargs):
         aggr = aggr_whole
 
     context, result = aggregate(store, 'metrics:total-project-developers:{}'.format(prid), kwargs['begin'],
+                                kwargs['end'],
+                                kwargs['max'], aggr, fill=[])
+    if aggr == aggr_whole:
+        result = result.pop()
+    return context, result
+
+
+@app.metric('/total-product-externals', parameters=[ORG.Product], title='Commits', id='product-externals')
+def get_total_product_externals(prid, **kwargs):
+    aggr = dev_aggr
+    if not kwargs['max']:
+        aggr = aggr_whole
+
+    context, result = aggregate(store, 'metrics:total-product-externals:{}'.format(prid), kwargs['begin'],
+                                kwargs['end'],
+                                kwargs['max'], aggr, fill=[])
+    if aggr == aggr_whole:
+        result = result.pop()
+    return context, result
+
+
+@app.metric('/total-project-externals', parameters=[ORG.Project], title='Commits', id='project-externals')
+def get_total_project_externals(prid, **kwargs):
+    aggr = dev_aggr
+    if not kwargs['max']:
+        aggr = aggr_whole
+
+    context, result = aggregate(store, 'metrics:total-project-externals:{}'.format(prid), kwargs['begin'],
                                 kwargs['end'],
                                 kwargs['max'], aggr, fill=[])
     if aggr == aggr_whole:
