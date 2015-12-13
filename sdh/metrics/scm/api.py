@@ -336,9 +336,6 @@ def get_total_org_externals(**kwargs):
 @app.metric('/total-repo-developers', parameters=[SCM.Repository], title='Developers', id='repository-developers')
 def get_total_repo_developers(rid, **kwargs):
     aggr = dev_aggr
-    if not kwargs['max']:
-        aggr = aggr_whole
-
     return aggregate(store, 'metrics:total-repo-developers:{}'.format(rid), kwargs['begin'], kwargs['end'],
                      kwargs['max'], aggr, fill=[])
 
@@ -357,55 +354,31 @@ def get_total_project_commits(prid, **kwargs):
 
 @app.metric('/total-product-developers', parameters=[ORG.Product], title='Commits', id='product-developers')
 def get_total_product_developers(prid, **kwargs):
-    aggr = dev_aggr
-    if not kwargs['max']:
-        aggr = aggr_whole
-
     context, result = aggregate(store, 'metrics:total-product-developers:{}'.format(prid), kwargs['begin'],
                                 kwargs['end'],
-                                kwargs['max'], aggr, fill=[])
-    if aggr == aggr_whole:
-        result = result.pop()
+                                kwargs['max'], dev_aggr, fill=[])
     return context, result
 
 
 @app.metric('/total-project-developers', parameters=[ORG.Project], title='Commits', id='project-developers')
 def get_total_project_developers(prid, **kwargs):
-    aggr = dev_aggr
-    if not kwargs['max']:
-        aggr = aggr_whole
-
     context, result = aggregate(store, 'metrics:total-project-developers:{}'.format(prid), kwargs['begin'],
                                 kwargs['end'],
-                                kwargs['max'], aggr, fill=[])
-    if aggr == aggr_whole:
-        result = result.pop()
+                                kwargs['max'], dev_aggr, fill=[])
     return context, result
 
 
 @app.metric('/total-product-externals', parameters=[ORG.Product], title='Commits', id='product-externals')
 def get_total_product_externals(prid, **kwargs):
-    aggr = dev_aggr
-    if not kwargs['max']:
-        aggr = aggr_whole
-
     context, result = aggregate(store, 'metrics:total-product-externals:{}'.format(prid), kwargs['begin'],
                                 kwargs['end'],
-                                kwargs['max'], aggr, fill=[])
-    if aggr == aggr_whole:
-        result = result.pop()
+                                kwargs['max'], dev_aggr, fill=[])
     return context, result
 
 
 @app.metric('/total-project-externals', parameters=[ORG.Project], title='Commits', id='project-externals')
 def get_total_project_externals(prid, **kwargs):
-    aggr = dev_aggr
-    if not kwargs['max']:
-        aggr = aggr_whole
-
     context, result = aggregate(store, 'metrics:total-project-externals:{}'.format(prid), kwargs['begin'],
                                 kwargs['end'],
-                                kwargs['max'], aggr, fill=[])
-    if aggr == aggr_whole:
-        result = result.pop()
+                                kwargs['max'], dev_aggr, fill=[])
     return context, result
