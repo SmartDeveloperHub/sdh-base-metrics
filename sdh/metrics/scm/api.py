@@ -79,6 +79,7 @@ def get_product_developers(prid, **kwargs):
     devs = filter(lambda x: x is not None, map(lambda x: store.get_committer_id(x[0]), devs))
     return list(store.get_developer_uris(*set(devs)))
 
+
 @app.metric('/total-repo-commits', parameters=[SCM.Repository], title='Commits', id='repository-commits')
 def get_total_repo_commits(rid, **kwargs):
     return aggregate(store, 'metrics:total-repo-commits:{}'.format(rid), kwargs['begin'], kwargs['end'],
@@ -94,6 +95,20 @@ def get_total_org_commits(**kwargs):
 @app.metric('/total-repositories', title='Repository', id='repositories')
 def get_total_org_repositories(**kwargs):
     return {}, [len(store.get_repositories())]
+
+
+@app.metric('/total-member-repositories', parameters=[ORG.Person], id='member-repositories')
+def get_total_member_repositories(mid, **kwargs):
+    if kwargs['begin'] is None:
+        kwargs['begin'] = 0
+    if kwargs['end'] is None:
+        kwargs['end'] = calendar.timegm(datetime.utcnow().timetuple())
+
+    committer_id = store.get_member_id(mid)
+    if committer_id is None:
+        return []
+    commits = store.get_commits(kwargs['begin'], kwargs['end'], uid=committer_id)
+    return {}, [len(list(store.get_repo_uris(*store.get_commits_repos(commits))))]
 
 
 @app.metric('/total-member-commits', parameters=[ORG.Person], title='Commits', id='member-commits')
@@ -213,6 +228,7 @@ def get_product_activity(prid, **kwargs):
     except (EnvironmentError, AttributeError) as e:
         raise APIError(e.message)
 
+
 @app.metric('/total-repo-member-commits', parameters=[SCM.Repository, ORG.Person], title='Commits',
             id='repository-member-commits')
 def get_total_repo_member_commits(rid, mid, **kwargs):
@@ -306,6 +322,7 @@ def aggr_whole(x):
 def dev_aggr(x):
     chain = itertools.chain(*list(x))
     return len(set(list(chain)))
+
 
 @app.metric('/total-developers', title='Developers', id='developers')
 def get_total_org_developers(**kwargs):
