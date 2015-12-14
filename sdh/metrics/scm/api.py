@@ -129,8 +129,9 @@ def get_member_activity(mid, **kwargs):
     kwargs['end'] = int(context['end'])
     kwargs['max'] = len(member_res)
     try:
-        # I know that there should be a metric called 'sum-commits' that calculates totals about commits
-        _, global_res = app.request_metric('sum-commits', **kwargs)
+        _, global_res = aggregate(store, 'metrics:total-commits', kwargs['begin'],
+                                  kwargs['end'],
+                                  kwargs['max'])
         activity = [float(m) / float(g) if g else 0 for m, g in zip(member_res, global_res)]
         return context, activity
     except (EnvironmentError, AttributeError) as e:
@@ -147,8 +148,9 @@ def get_repo_activity(rid, **kwargs):
     kwargs['end'] = int(context['end'])
     kwargs['max'] = len(repo_res)
     try:
-        # I know that there should be a metric called 'sum-commits' that calculates totals about commits
-        _, global_res = app.request_metric('sum-commits', **kwargs)
+        _, global_res = aggregate(store, 'metrics:total-commits', kwargs['begin'],
+                                  kwargs['end'],
+                                  kwargs['max'])
         activity = [float(m) / float(g) if g else 0 for m, g in zip(repo_res, global_res)]
         return context, activity
     except (EnvironmentError, AttributeError) as e:
@@ -167,7 +169,9 @@ def get_member_repo_activity(rid, mid, **kwargs):
     kwargs['end'] = int(context['end'])
     kwargs['max'] = len(repo_res)
     try:
-        _, member_res = app.request_metric('sum-member-commits', uid=mid, **kwargs)
+        _, member_res = aggregate(store, 'metrics:total-member-commits:{}'.format(committer_id), kwargs['begin'],
+                                  kwargs['end'],
+                                  kwargs['max'])
         activity = [float(m) / float(g) if g else 0 for m, g in zip(repo_res, member_res)]
         return context, activity
     except (EnvironmentError, AttributeError) as e:
@@ -186,7 +190,9 @@ def get_member_activity_in_repository(rid, mid, **kwargs):
     kwargs['end'] = int(context['end'])
     kwargs['max'] = len(member_res)
     try:
-        _, repo_res = app.request_metric('sum-repository-commits', rid=rid, **kwargs)
+        _, repo_res = aggregate(store, 'metrics:total-repo-commits:{}'.format(rid), kwargs['begin'],
+                                kwargs['end'],
+                                kwargs['max'])
         activity = [float(m) / float(g) if g else 0 for m, g in zip(member_res, repo_res)]
         return context, activity
     except (EnvironmentError, AttributeError) as e:
@@ -203,8 +209,9 @@ def get_project_activity(pjid, **kwargs):
     kwargs['end'] = int(context['end'])
     kwargs['max'] = len(project_res)
     try:
-        # I know that there should be a metric called 'sum-commits' that calculates totals about commits
-        _, global_res = app.request_metric('sum-commits', **kwargs)
+        _, global_res = aggregate(store, 'metrics:total-commits', kwargs['begin'],
+                                  kwargs['end'],
+                                  kwargs['max'])
         activity = [float(m) / float(g) if g else 0 for m, g in zip(project_res, global_res)]
         return context, activity
     except (EnvironmentError, AttributeError) as e:
@@ -221,8 +228,9 @@ def get_product_activity(prid, **kwargs):
     kwargs['end'] = int(context['end'])
     kwargs['max'] = len(project_res)
     try:
-        # I know that there should be a metric called 'sum-commits' that calculates totals about commits
-        _, global_res = app.request_metric('sum-commits', **kwargs)
+        _, global_res = aggregate(store, 'metrics:total-commits', kwargs['begin'],
+                                  kwargs['end'],
+                                  kwargs['max'])
         activity = [float(m) / float(g) if g else 0 for m, g in zip(project_res, global_res)]
         return context, activity
     except (EnvironmentError, AttributeError) as e:
