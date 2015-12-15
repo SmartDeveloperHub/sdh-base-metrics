@@ -318,7 +318,7 @@ def get_avg_org_commits(**kwargs):
                      kwargs['max'], aggr=avg, extend=True)
 
 
-@app.metric('/total-branches', title='Commits', id='branches')
+@app.metric('/total-branches', title='Branches', id='branches')
 def get_total_org_branches(**kwargs):
     return aggregate(store, 'metrics:total-branches', kwargs['begin'], kwargs['end'],
                      kwargs['max'])
@@ -378,7 +378,7 @@ def get_total_repo_developers(rid, **kwargs):
                      kwargs['max'], aggr, fill=[])
 
 
-@app.metric('/total-repo-externals', parameters=[SCM.Repository], title='Developers', id='repository-externals')
+@app.metric('/total-repo-externals', parameters=[SCM.Repository], title='Externals', id='repository-externals')
 def get_total_repo_externals(rid, **kwargs):
     aggr = dev_aggr
     return aggregate(store, 'metrics:total-repo-externals:{}'.format(rid), kwargs['begin'], kwargs['end'],
@@ -396,7 +396,7 @@ def get_total_project_commits(prid, **kwargs):
                      kwargs['max'])
 
 
-@app.metric('/total-product-developers', parameters=[ORG.Product], title='Commits', id='product-developers')
+@app.metric('/total-product-developers', parameters=[ORG.Product], title='Developers', id='product-developers')
 def get_total_product_developers(prid, **kwargs):
     context, result = aggregate(store, 'metrics:total-product-developers:{}'.format(prid), kwargs['begin'],
                                 kwargs['end'],
@@ -404,7 +404,7 @@ def get_total_product_developers(prid, **kwargs):
     return context, result
 
 
-@app.metric('/total-project-developers', parameters=[ORG.Project], title='Commits', id='project-developers')
+@app.metric('/total-project-developers', parameters=[ORG.Project], title='Developers', id='project-developers')
 def get_total_project_developers(prid, **kwargs):
     context, result = aggregate(store, 'metrics:total-project-developers:{}'.format(prid), kwargs['begin'],
                                 kwargs['end'],
@@ -412,7 +412,7 @@ def get_total_project_developers(prid, **kwargs):
     return context, result
 
 
-@app.metric('/total-product-externals', parameters=[ORG.Product], title='Commits', id='product-externals')
+@app.metric('/total-product-externals', parameters=[ORG.Product], title='Externals', id='product-externals')
 def get_total_product_externals(prid, **kwargs):
     context, result = aggregate(store, 'metrics:total-product-externals:{}'.format(prid), kwargs['begin'],
                                 kwargs['end'],
@@ -420,7 +420,7 @@ def get_total_product_externals(prid, **kwargs):
     return context, result
 
 
-@app.metric('/total-project-externals', parameters=[ORG.Project], title='Commits', id='project-externals')
+@app.metric('/total-project-externals', parameters=[ORG.Project], title='Externals', id='project-externals')
 def get_total_project_externals(prid, **kwargs):
     context, result = aggregate(store, 'metrics:total-project-externals:{}'.format(prid), kwargs['begin'],
                                 kwargs['end'],
