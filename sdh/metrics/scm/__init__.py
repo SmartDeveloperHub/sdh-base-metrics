@@ -130,6 +130,7 @@ def link_commit_developer((c_uri, _, d_uri)):
 @st.collect('?r doap:developer ?p')
 def link_repo_developer((r_uri, _, d_uri)):
     st.execute('sadd', 'frag:repos:-{}-:devs'.format(r_uri), d_uri)
+    st.execute('sadd', 'frag:devs:-{}-:repos'.format(d_uri), r_uri)
 
 
 @st.collect('?p foaf:nick ?com_nick')
@@ -162,20 +163,27 @@ def update_interval_repo_metrics(begin, end):
         store_calc(st, 'metrics:total-repo-branches:{}'.format(rid), begin, value)
         total_branches[rid] = value
 
+    product_repos = {}
+
     for product in st.get_products():
         product_commits = 0
         product_branches = 0
         projects = st.get_product_projects(product)
+        if product not in product_repos:
+            product_repos[product] = set([])
         for project in projects:
             project_commits = 0
             project_branches = 0
-            for rid in set.intersection(set(total_commits.keys()), st.get_project_repositories(project)):
+            av_repos = set.intersection(set(total_commits.keys()), st.get_project_repositories(project))
+            for rid in av_repos:
+                if rid not in product_repos[product]:
+                    product_repos[product].add(rid)
+                    product_commits += total_commits[rid]
+                    product_branches += total_branches[rid]
                 project_commits += total_commits[rid]
                 project_branches += total_branches[rid]
             store_calc(st, 'metrics:total-project-commits:{}'.format(project), begin, project_commits)
             store_calc(st, 'metrics:total-project-branches:{}'.format(project), begin, project_branches)
-            product_commits += project_commits
-            product_branches += project_branches
 
         store_calc(st, 'metrics:total-product-commits:{}'.format(product), begin, product_commits)
         store_calc(st, 'metrics:total-product-branches:{}'.format(product), begin, product_branches)
@@ -218,8 +226,12 @@ def update_interval_developers(begin, end):
             projects.add(project)
             repos = st.get_project_repositories(project)
             for repo in repos:
-                repo_product[repo] = product
-                repo_project[repo] = project
+                if repo not in repo_product:
+                    repo_product[repo] = set([])
+                if repo not in repo_project:
+                    repo_project[repo] = set([])
+                repo_product[repo].add(product)
+                repo_project[repo].add(project)
 
     if len(externals):
         store_calc(st, 'metrics:total-externals', begin, externals)
@@ -228,7 +240,7 @@ def update_interval_developers(begin, end):
         for uid in devs:
             value = len(st.get_commits(begin, end, uid=uid))
             store_calc(st, 'metrics:total-member-commits:{}'.format(uid), begin, value)
-            for rid in st.get_repositories():
+            for rid in st.get_all_developer_repos(uid):
                 value = len(st.get_commits(begin, end, uid=uid, rid=rid))
                 if rid not in total_repo_devs:
                     total_repo_devs[rid] = set([])
@@ -239,13 +251,13 @@ def update_interval_developers(begin, end):
                     if uid in externals:
                         total_repo_externals[rid].add(uid)
                         if rid in repo_product:
-                            product_externals.get(repo_product[rid]).add(uid)
+                            map(lambda _: product_externals.get(_).add(uid), repo_product[rid])
                         if rid in repo_project:
-                            project_externals.get(repo_project[rid]).add(uid)
+                            map(lambda _: project_externals.get(_).add(uid), repo_project[rid])
                     if rid in repo_product:
-                        product_devs.get(repo_product[rid]).add(uid)
+                        map(lambda _: product_devs.get(_).add(uid), repo_product[rid])
                     if rid in repo_project:
-                        project_devs.get(repo_project[rid]).add(uid)
+                        map(lambda _: project_devs.get(_).add(uid), repo_project[rid])
                 store_calc(st, 'metrics:total-repo-member-commits:{}:{}'.format(rid, uid), begin, value)
         [store_calc(st, 'metrics:total-repo-developers:{}'.format(rid), begin, list(total_repo_devs[rid])) for rid in
          filter(lambda x: len(total_repo_devs[x]), total_repo_devs)]

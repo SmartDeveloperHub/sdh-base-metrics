@@ -130,6 +130,14 @@ class SCMStore(FragmentStore):
         for dev in devs:
             yield {'id': dev, 'uri': self.db.get('frag:members:{}:'.format(dev))}
 
+    def get_all_developer_repos(self, uid):
+        try:
+            dev_uri = self.db.get('frag:devs:{}:'.format(uid))
+            repo_uris = self.db.smembers('frag:devs:-{}-:repos'.format(dev_uri))
+            return map(lambda x: self.db.hget('frag:repos:-{}-:'.format(x), 'id'), repo_uris)
+        except:
+            return []
+
     @property
     def first_date(self):
         now = calendar.timegm(datetime.utcnow().timetuple())

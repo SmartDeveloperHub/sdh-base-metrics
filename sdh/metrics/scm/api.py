@@ -378,6 +378,12 @@ def get_total_repo_developers(rid, **kwargs):
                      kwargs['max'], aggr, fill=[])
 
 
+@app.metric('/total-repo-externals', parameters=[SCM.Repository], title='Developers', id='repository-externals')
+def get_total_repo_externals(rid, **kwargs):
+    aggr = dev_aggr
+    return aggregate(store, 'metrics:total-repo-externals:{}'.format(rid), kwargs['begin'], kwargs['end'],
+                     kwargs['max'], aggr, fill=[])
+
 @app.metric('/total-product-commits', parameters=[ORG.Product], title='Commits', id='product-commits')
 def get_total_product_commits(prid, **kwargs):
     return aggregate(store, 'metrics:total-product-commits:{}'.format(prid), kwargs['begin'], kwargs['end'],
