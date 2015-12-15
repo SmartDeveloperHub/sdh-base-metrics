@@ -25,6 +25,7 @@
 __author__ = 'Fernando Serena'
 
 from sdh.metrics.store.fragment import FragmentStore
+from sdh.metrics.store.metrics import flat_sum
 import calendar
 from datetime import datetime
 import uuid
@@ -165,3 +166,33 @@ class SCMStore(FragmentStore):
             return self.db.hget('frag:members:-{}-:'.format(member_uri), 'id')
         except:
             return None
+
+    def get_repo_frame(self, rid):
+        try:
+            repo_uri = list(self.get_repo_uris(rid)).pop().get('uri')
+            lc = self.db.hget('frag:repos:-{}-:'.format(repo_uri), 'lc')
+            fc = self.db.hget('frag:repos:-{}-:'.format(repo_uri), 'fc')
+            lc = eval(lc) if lc is not None else lc
+            fc = eval(fc) if fc is not None else fc
+            return fc, lc
+        except IndexError:
+            return None, None
+
+    def get_representative_frame(self, *rids):
+        max_lc = None
+        min_fc = None
+        for rid in rids:
+            fc, lc = self.get_repo_frame(rid)
+            if fc is not None:
+                min_fc = fc if min_fc is None else min(min_fc, fc)
+            if lc is not None:
+                max_lc = lc if max_lc is None else max(max_lc, lc)
+        return min_fc, max_lc
+
+    def get_project_frame(self, pjid):
+        repos = self.get_project_repositories(pjid)
+        return flat_sum(self.get_representative_frame(*repos))
+
+    def get_product_frame(self, prid):
+        repos = flat_sum([self.get_project_repositories(pjid) for pjid in self.get_product_projects(prid)])
+        return self.get_representative_frame(*repos)

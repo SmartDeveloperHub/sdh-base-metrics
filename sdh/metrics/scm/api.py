@@ -140,6 +140,10 @@ def get_member_activity(mid, **kwargs):
 
 @app.metric('/repo-activity', parameters=[SCM.Repository], title='Activity', id='repository-activity')
 def get_repo_activity(rid, **kwargs):
+    if kwargs['begin'] is None and kwargs['end'] is None:
+        begin, end = store.get_repo_frame(rid)
+        kwargs['begin'] = begin
+        kwargs['end'] = end
     context, repo_res = aggregate(store, 'metrics:total-repo-commits:{}'.format(rid), kwargs['begin'],
                                   kwargs['end'],
                                   kwargs['max'])
@@ -201,6 +205,11 @@ def get_member_activity_in_repository(rid, mid, **kwargs):
 
 @app.metric('/project-activity', parameters=[ORG.Project], title='Activity', id='project-activity')
 def get_project_activity(pjid, **kwargs):
+    if kwargs['begin'] is None and kwargs['end'] is None:
+        begin, end = store.get_project_frame(pjid)
+        kwargs['begin'] = begin
+        kwargs['end'] = end
+
     context, project_res = aggregate(store, 'metrics:total-project-commits:{}'.format(pjid), kwargs['begin'],
                                      kwargs['end'],
                                      kwargs['max'])
@@ -220,6 +229,10 @@ def get_project_activity(pjid, **kwargs):
 
 @app.metric('/product-activity', parameters=[ORG.Product], title='Activity', id='product-activity')
 def get_product_activity(prid, **kwargs):
+    if kwargs['begin'] is None and kwargs['end'] is None:
+        begin, end = store.get_product_frame(prid)
+        kwargs['begin'] = begin
+        kwargs['end'] = end
     context, project_res = aggregate(store, 'metrics:total-product-commits:{}'.format(prid), kwargs['begin'],
                                      kwargs['end'],
                                      kwargs['max'])

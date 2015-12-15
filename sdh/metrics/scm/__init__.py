@@ -92,6 +92,18 @@ def add_repository_id((r_uri, _, rid)):
     st.execute('set', 'frag:repos:{}:'.format(rid.toPython()), r_uri)
 
 
+@st.collect('?r scm:firstCommit ?fcom')
+def set_repository_first_commit((r_uri, _, fcom)):
+    timestamp = calendar.timegm(fcom.toPython().timetuple())
+    st.execute('hset', 'frag:repos:-{}-:'.format(r_uri), 'fc', timestamp)
+
+
+@st.collect('?r scm:lastCommit ?lcom')
+def set_repository_last_commit((r_uri, _, lcom)):
+    timestamp = calendar.timegm(lcom.toPython().timetuple())
+    st.execute('hset', 'frag:repos:-{}-:'.format(r_uri), 'lc', timestamp)
+
+
 @st.collect('?c scm:createdOn ?t')
 def add_commit((c_uri, _, created_on)):
     timestamp = calendar.timegm(created_on.toPython().timetuple())

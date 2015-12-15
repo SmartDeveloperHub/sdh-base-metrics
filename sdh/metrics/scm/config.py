@@ -59,10 +59,10 @@ class Config(object):
 class DevelopmentConfig(Config):
     DEBUG = True
     LOG = _logging_conf(logging.DEBUG)
-    PROVIDER = _broker_conf('localhost', 5672)
-    PROVIDER.update(_agora_conf('localhost', 9002))
-    # PROVIDER = _broker_conf('138.4.249.224', 5672)
+    # PROVIDER = _broker_conf('localhost', 5672)
     # PROVIDER.update(_agora_conf('138.4.249.224', 9009))
+    PROVIDER = _broker_conf('138.4.249.224', 5672)
+    PROVIDER.update(_agora_conf('138.4.249.224', 9009))
     REDIS = _redis_conf('localhost', 6, 6379)
 
 
