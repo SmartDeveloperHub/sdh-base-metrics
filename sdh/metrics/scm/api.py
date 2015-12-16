@@ -121,6 +121,10 @@ def get_total_member_commits(mid, **kwargs):
 @app.metric('/member-activity', parameters=[ORG.Person], title='Activity', id='member-activity')
 def get_member_activity(mid, **kwargs):
     committer_id = store.get_member_id(mid)
+    if kwargs['begin'] is None and kwargs['end'] is None:
+        begin, end = store.get_developer_frame(committer_id)
+        kwargs['begin'] = begin
+        kwargs['end'] = end
     context, member_res = aggregate(store, 'metrics:total-member-commits:{}'.format(committer_id), kwargs['begin'],
                                     kwargs['end'],
                                     kwargs['max'])
