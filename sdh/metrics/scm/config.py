@@ -34,18 +34,18 @@ def _api_port():
 
 def _redis_conf(def_host, def_db, def_port):
     return {'host': os.environ.get('DB_HOST', def_host),
-            'db': os.environ.get('DB_DB', def_db),
-            'port': os.environ.get('DB_PORT', def_port)}
+            'db': int(os.environ.get('DB_DB', def_db)),
+            'port': int(os.environ.get('DB_PORT', def_port))}
 
 
 def _agora_conf(def_host, def_port):
     return {'agora_host': os.environ.get('AGORA_HOST', def_host),
-            'agora_port': os.environ.get('AGORA_PORT', def_port)}
+            'agora_port': int(os.environ.get('AGORA_PORT', def_port))}
 
 
 def _broker_conf(def_host, def_port):
     return {'broker_host': os.environ.get('BROKER_HOST', def_host),
-            'broker_port': os.environ.get('BROKER_PORT', def_port)}
+            'broker_port': int(os.environ.get('BROKER_PORT', def_port))}
 
 
 def _logging_conf(def_level):
@@ -59,17 +59,15 @@ class Config(object):
 class DevelopmentConfig(Config):
     DEBUG = True
     LOG = _logging_conf(logging.DEBUG)
-    # PROVIDER = _broker_conf('localhost', 5672)
-    # PROVIDER.update(_agora_conf('138.4.249.224', 9009))
-    PROVIDER = _broker_conf('138.4.249.224', 5672)
-    PROVIDER.update(_agora_conf('138.4.249.224', 9009))
+    PROVIDER = _broker_conf('localhost', 5672)
+    PROVIDER.update(_agora_conf('localhost', 9009))
     REDIS = _redis_conf('localhost', 6, 6379)
 
 
 class ProductionConfig(Config):
     DEBUG = False
     LOG = _logging_conf(logging.INFO)
-    PROVIDER = _broker_conf('138.4.249.224', 5672)
-    PROVIDER.update(_agora_conf('138.4.249.224', 9009))
+    PROVIDER = _broker_conf('localhost', 5672)
+    PROVIDER.update(_agora_conf('localhost', 9009))
     REDIS = _redis_conf('redis', 6, 6379)
 

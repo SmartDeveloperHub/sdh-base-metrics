@@ -204,3 +204,7 @@ class SCMStore(FragmentStore):
     def get_product_frame(self, prid):
         repos = flat_sum([self.get_project_repositories(pjid) for pjid in self.get_product_projects(prid)])
         return self.get_representative_frame(*repos)
+
+    def get_developer_frame(self, uid):
+        repos = self.get_all_developer_repos(uid)
+        return flat_sum(self.get_representative_frame(*repos))
