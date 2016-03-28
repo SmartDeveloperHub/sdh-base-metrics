@@ -29,7 +29,7 @@ __author__ = 'Fernando Serena'
 
 
 def _api_port():
-    return int(os.environ.get('API_PORT', 5003))
+    return int(os.environ.get('API_PORT', 5004))
 
 
 def _redis_conf(def_host, def_db, def_port):
@@ -48,8 +48,12 @@ def _broker_conf(def_host, def_port):
             'broker_port': int(os.environ.get('BROKER_PORT', def_port))}
 
 
-def _logging_conf(def_level):
-    return int(os.environ.get('LOG_LEVEL', def_level))
+def _stoa_conf(def_exchange, def_topic_pattern, def_response_prefix):
+    return {
+        'exchange': os.environ.get('EXCHANGE', def_exchange),
+        'topic_pattern': os.environ.get('TOPIC_PATTERN', def_topic_pattern),
+        'response_prefix': os.environ.get('RESPONSE_PREFIX', def_response_prefix)
+    }
 
 
 class Config(object):
@@ -58,16 +62,17 @@ class Config(object):
 
 class DevelopmentConfig(Config):
     DEBUG = True
-    LOG = _logging_conf(logging.DEBUG)
+    LOG = logging.DEBUG
     PROVIDER = _broker_conf('localhost', 5672)
     PROVIDER.update(_agora_conf('localhost', 9009))
-    REDIS = _redis_conf('localhost', 6, 6379)
+    PROVIDER.update(_stoa_conf('sdh', 'scholar.request', 'scholar.response'))
+    REDIS = _redis_conf('localhost', 5, 6379)
 
 
 class ProductionConfig(Config):
     DEBUG = False
-    LOG = _logging_conf(logging.INFO)
+    LOG = logging.INFO
     PROVIDER = _broker_conf('localhost', 5672)
     PROVIDER.update(_agora_conf('localhost', 9009))
-    REDIS = _redis_conf('redis', 6, 6379)
-
+    PROVIDER.update(_stoa_conf('sdh', 'scholar.request', 'scholar.response'))
+    REDIS = _redis_conf('redis', 5, 6379)
